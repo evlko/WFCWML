@@ -3,7 +3,6 @@ from collections import defaultdict
 from dataclasses import dataclass
 from itertools import combinations
 from pathlib import Path
-from typing import List, Tuple
 
 import numpy as np
 from tqdm import tqdm
@@ -32,7 +31,7 @@ class ModelMC(Model, Judge):
     @staticmethod
     def _apply_hiding(
         state: np.ndarray,
-        indices_to_hide: List[Tuple[int, int]],
+        indices_to_hide: list[tuple[int, int]],
         hide_code: int = HIDDEN_CELL,
     ) -> np.ndarray:
         """Create a copy of the state with specified indices hidden."""
@@ -58,7 +57,7 @@ class ModelMC(Model, Judge):
                 self.generate_paths_to_state(local_state)
 
     def select(
-        self, objects: List[WeightedObject], state: np.ndarray
+        self, objects: list[WeightedObject], state: np.ndarray
     ) -> MetaPattern | None:
         cx, cy = 1, 1
         state = self._apply_hiding(state, [(cx, cy)], TARGET_CELL)

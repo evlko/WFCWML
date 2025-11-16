@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass, field
-from typing import Any, Dict, Set
+from typing import Any
 
 import networkx as nx
 
@@ -11,7 +11,7 @@ from project.utils.rectangulator import Rect
 class Vertex:
     uid: int
     rect: Rect
-    neighbors: Set[int] = field(default_factory=set)
+    neighbors: set[int] = field(default_factory=set)
 
     @property
     def is_arena(self) -> bool:
@@ -30,11 +30,11 @@ class Vertex:
 
 @dataclass
 class Graph:
-    vertices: Dict[int, Vertex]
+    vertices: dict[int, Vertex]
     NOT_CONNECTED_GRARH_FEATURE = "Infinity"
 
     @staticmethod
-    def create_nx_graph(vertices: Dict[int, Vertex]) -> nx.Graph:
+    def create_nx_graph(vertices: dict[int, Vertex]) -> nx.Graph:
         G = nx.Graph()
 
         for uid in vertices.keys():
@@ -96,7 +96,7 @@ class Graph:
             },
         )
 
-    def to_serializable(self) -> Dict[str, Any]:
+    def to_serializable(self) -> dict[str, Any]:
         meta = self.calculate_features()
 
         return {

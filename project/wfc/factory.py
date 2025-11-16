@@ -1,5 +1,4 @@
 import json
-from typing import Dict, List, Union
 
 from project.logger import logger
 from project.wfc.pattern import MetaPattern, Pattern
@@ -14,7 +13,7 @@ class Factory:
             self.images_folder = data["images_folder"]
             self.data = data["patterns"]
 
-    def create_patterns(self) -> List[MetaPattern]:
+    def create_patterns(self) -> list[MetaPattern]:
         """Creates patterns and rules from JSON data"""
         patterns_data = {p["id"]: p for p in self.data}
         meta_patterns = [
@@ -50,10 +49,10 @@ class Factory:
 
         return meta_patterns
 
-    def create_rules(self, rules: Dict[str, List[Union[str, int]]]) -> NeighborRuleSet:
+    def create_rules(self, rules: dict[str, list[str | int]]) -> NeighborRuleSet:
         """Create a NeighborRuleSet based on the JSON rules"""
 
-        def rules_handler(options: List[Union[str, int]]):
+        def rules_handler(options: list[str | int]):
             results = []
             for op in options:
                 if isinstance(op, str):

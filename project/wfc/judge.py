@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import List
 
 import numpy as np
 
@@ -15,7 +14,7 @@ class Judge(ABC):
 
     @abstractmethod
     def select(
-        self, objects: List[WeightedObject], state: np.ndarray
+        self, objects: list[WeightedObject], state: np.ndarray
     ) -> WeightedObject:
         pass
 
@@ -25,7 +24,7 @@ class RandomJudge(Judge):
         super().__init__(seed)
 
     def select(
-        self, objects: List[WeightedObject], state: np.ndarray
+        self, objects: list[WeightedObject], state: np.ndarray
     ) -> WeightedObject:
         return Utils.weighted_choice(objects=objects, seed=self.seed)
 
@@ -35,6 +34,6 @@ class GreedyJudge(Judge):
         super().__init__(seed)
 
     def select(
-        self, objects: List[WeightedObject], state: np.ndarray
+        self, objects: list[WeightedObject], state: np.ndarray
     ) -> WeightedObject:
         return max(objects, key=lambda obj: obj.weight)

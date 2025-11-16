@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Union
 
 from project.logger import logger
 from project.wfc.direction import Direction, reverse_directions
@@ -23,12 +22,12 @@ class ValidationError:
 @dataclass
 class ValidationMessage:
     result: ValidationResult = ValidationResult.SUCCESS
-    error: Union[ValidationError, None] = field(default_factory=list)
+    errors: list[ValidationError] | None = field(default_factory=list)
 
     def __str__(self):
-        error_str = "\n".join(str(err) for err in self.error)
-        error_str = f"Errors {len(self.error)}:\n{error_str}"
-        return f"Validation Result: {self.result.value}\n{error_str if len(self.error) > 0 else ''}"
+        error_str = "\n".join(str(err) for err in self.errors)
+        error_str = f"Errors {len(self.errors)}:\n{error_str}"
+        return f"Validation Result: {self.result.value}\n{error_str if len(self.errors) > 0 else ''}"
 
     def __repr__(self):
         return self.__str__()
@@ -38,7 +37,7 @@ class Repository:
     def __init__(self) -> None:
         self.patterns = None
 
-    def register_patterns(self, patterns: List[MetaPattern]) -> None:
+    def register_patterns(self, patterns: list[MetaPattern]) -> None:
         self.patterns = patterns
 
     def validate_patterns(self) -> ValidationMessage:
@@ -57,14 +56,14 @@ class Repository:
                         neighbour_uid=neighbour.uid,
                         direction=direction,
                     )
-                    message.error.append(error)
+                    message.errors.append(error)
                     message.result = ValidationResult.FAIL
         return message
 
-    def get_all_patterns(self) -> List[MetaPattern]:
+    def get_all_patterns(self) -> list[MetaPattern]:
         return self.patterns
 
-    def get_patterns_by_special_rule(self, rule: str) -> List[MetaPattern]:
+    def get_patterns_by_special_rule(self, rule: str) -> list[MetaPattern]:
         """Get patterns by a special rule"""
         result = []
 
@@ -73,7 +72,7 @@ class Repository:
 
         return result
 
-    def get_patterns_by_tag(self, tag: str) -> List[MetaPattern]:
+    def get_patterns_by_tag(self, tag: str) -> list[MetaPattern]:
         """Get patterns by a tag"""
         result = []
 
@@ -86,7 +85,7 @@ class Repository:
 
         return result
 
-    def handle_text_rule(self, rule: str) -> List[MetaPattern]:
+    def handle_text_rule(self, rule: str) -> list[MetaPattern]:
         """Handle text rule: use special rule of just a tag."""
         if rule in SpecialRule:
             return self.get_patterns_by_special_rule(rule=rule)

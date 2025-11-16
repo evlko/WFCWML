@@ -1,6 +1,6 @@
 import base64
 import zlib
-from typing import List, Tuple
+from typing import Tuple
 
 import numpy as np
 
@@ -10,7 +10,7 @@ from project.wfc.wobj import WeightedObject
 class Utils:
     @staticmethod
     def weighted_choice(
-        objects: List[WeightedObject], seed: int = None
+        objects: list[WeightedObject], seed: int = None
     ) -> WeightedObject:
         """Select a weighted object based on its weight."""
         random_gen = np.random.RandomState(seed)

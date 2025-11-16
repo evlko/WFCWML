@@ -1,12 +1,10 @@
-from typing import Dict, List
-
 from project.utils.graph import Graph, Vertex
 from project.utils.rectangulator import Rect
 
 
 class GraphBuilder:
     @staticmethod
-    def build_graph(rectangles: List[Rect]) -> Dict[Rect, List[Rect]]:
+    def build_graph(rectangles: list[Rect]) -> Graph:
         graph = Graph(
             vertices={i: Vertex(uid=i, rect=rect) for i, rect in enumerate(rectangles)}
         )

@@ -1,6 +1,5 @@
 import uuid
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
 
 import numpy as np
 
@@ -26,17 +25,17 @@ class Rect:
         return self.width * self.height
 
     @property
-    def indices(self) -> List[Tuple[int, int]]:
+    def indices(self) -> list[tuple[int, int]]:
         return [(i, j) for i in range(self.height) for j in range(self.width)]
 
     @property
-    def center(self) -> Tuple[int, int]:
+    def center(self) -> tuple[int, int]:
         return self.width // 2, self.height // 2
 
 
 class Grid:
     def __init__(
-        self, patterns: List[MetaPattern], rect: Rect = Rect(width=3, height=3)
+        self, patterns: list[MetaPattern], rect: Rect = Rect(width=3, height=3)
     ):
         self.width = rect.width
         self.height = rect.height
@@ -67,7 +66,7 @@ class Grid:
 
     def get_patterns_around_point(
         self, p: Point, view: Rect = Rect(width=3, height=3), is_extended: bool = True
-    ) -> List[Optional[MetaPattern]]:
+    ) -> list[MetaPattern | None]:
         """Get patterns within a rectangular region around a specified point (x, y)."""
         cx, cy = view.center
 
@@ -101,7 +100,7 @@ class Grid:
         candidate_y, candidate_x = candidates[closest_index]
         return Point(x=candidate_y, y=candidate_x)
 
-    def get_neighbors(self, p: Point) -> List[MetaPattern]:
+    def get_neighbors(self, p: Point) -> list[MetaPattern]:
         """Get neighbors and their directions for the cell (x, y)."""
         neighbors = []
         if p.x > 0:
@@ -114,7 +113,7 @@ class Grid:
             neighbors.append((p.x, p.y + 1, Direction.LEFT))
         return neighbors
 
-    def get_valid_patterns(self, p: Point) -> List[MetaPattern]:
+    def get_valid_patterns(self, p: Point) -> list[MetaPattern]:
         """Get all valid patterns for the cell (x, y) based on neighbors' constraints."""
         possible_patterns = set(self.patterns)
 

@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import List, Tuple
 
 import numpy as np
 
@@ -64,7 +63,7 @@ class Rectangulator:
     def remove_rectangle(array: np.ndarray, rect: Rect) -> None:
         array[rect.x1 : rect.x2 + 1, rect.y1 : rect.y2 + 1] = 0
 
-    def split_into_minimum_rectangles(self, array: np.ndarray) -> List[Rect]:
+    def split_into_minimum_rectangles(self, array: np.ndarray) -> list[Rect]:
         rectangles = []
         array = array.copy()
 

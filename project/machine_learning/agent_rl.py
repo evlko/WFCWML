@@ -2,7 +2,6 @@ import pickle
 import random
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Dict, List
 
 import numpy as np
 
@@ -38,7 +37,7 @@ class AgentRL(Model, Judge):
         self.gamma = gamma
         self.view = view
         self.exploration_judge = exploration_judge
-        self.q_table: Dict[tuple, QValue] = defaultdict(float)
+        self.q_table: dict[tuple, QValue] = defaultdict(float)
 
     def save_weights(self, filename: str) -> None:
         """Save Q-table to a file."""
@@ -67,7 +66,7 @@ class AgentRL(Model, Judge):
         """Get a view of patterns around a given point."""
         return self.wfc.grid.get_patterns_around_point(p=point, view=self.view)
 
-    def _get_possible_patterns(self, point: Point) -> List[MetaPattern]:
+    def _get_possible_patterns(self, point: Point) -> list[MetaPattern]:
         """Retrieve possible patterns for the specified point."""
         return self.wfc.grid.get_valid_patterns(p=point)
 
