@@ -51,14 +51,19 @@ class ModelMC(Model, Judge):
             for x, y, meta_pattern in grid.iterate_cells():
                 point = Point(x, y)
                 pattenrs = grid.get_patterns_around_point(
-                    p=point, view=self.view, is_extended=True
+                    point=point, view=self.view, is_extended=True
                 )
                 local_state = grid.get_patterns_property(pattenrs)
                 self.generate_paths_to_state(local_state)
 
     def select(
-        self, objects: list[WeightedObject], state: np.ndarray
+        self, objects: list[WeightedObject], grid: Grid, point: Point
     ) -> MetaPattern | None:
+        state = grid.get_patterns_around_point(
+            point=point, view=self.view, is_extended=True
+        ).copy()
+        state = grid.get_patterns_property(state)
+
         cx, cy = 1, 1
         state = self._apply_hiding(state, [(cx, cy)], TARGET_CELL)
         serialized_state = Utils.encode_np_array(state)

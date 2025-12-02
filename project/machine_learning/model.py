@@ -9,9 +9,9 @@ class ModelMode(Enum):
 
 class Model(ABC):
     @abstractmethod
-    def save_weights(filename: str):
+    def save_weights(self, filename: str) -> None:
         pass
 
     @abstractmethod
-    def load_weights(filename: str):
+    def load_weights(self, filename: str) -> None:
         pass

@@ -32,7 +32,7 @@ class History:
     def add_step(self, step: StepResult, grid: Grid) -> None:
         if step.chosen_pattern is not None and step.chosen_point is not None:
             view_around = grid.get_patterns_around_point(
-                p=step.chosen_point, view=self._view
+                point=step.chosen_point, view=self._view
             )
             history_step = HistoryStep(
                 success=step.success,

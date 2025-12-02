@@ -64,7 +64,7 @@ class AgentRL(Model, Judge):
 
     def _observe(self, point: Point) -> np.ndarray:
         """Get a view of patterns around a given point."""
-        return self.wfc.grid.get_patterns_around_point(p=point, view=self.view)
+        return self.wfc.grid.get_patterns_around_point(point=point, view=self.view)
 
     def _get_possible_patterns(self, point: Point) -> list[MetaPattern]:
         """Retrieve possible patterns for the specified point."""

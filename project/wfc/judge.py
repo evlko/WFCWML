@@ -1,9 +1,7 @@
 from abc import ABC, abstractmethod
 
-import numpy as np
-
 from project.utils.utils import Utils
-from project.wfc.grid import Rect
+from project.wfc.grid import Grid, Rect, Point
 from project.wfc.wobj import WeightedObject
 
 
@@ -14,7 +12,7 @@ class Judge(ABC):
 
     @abstractmethod
     def select(
-        self, objects: list[WeightedObject], state: np.ndarray
+        self, objects: list[WeightedObject], grid: Grid, point: Point
     ) -> WeightedObject:
         pass
 
@@ -24,7 +22,7 @@ class RandomJudge(Judge):
         super().__init__(seed)
 
     def select(
-        self, objects: list[WeightedObject], state: np.ndarray
+        self, objects: list[WeightedObject], grid: Grid, point: Point
     ) -> WeightedObject:
         return Utils.weighted_choice(objects=objects, seed=self.seed)
 
@@ -34,6 +32,6 @@ class GreedyJudge(Judge):
         super().__init__(seed)
 
     def select(
-        self, objects: list[WeightedObject], state: np.ndarray
+        self, objects: list[WeightedObject], grid: Grid, point: Point
     ) -> WeightedObject:
         return max(objects, key=lambda obj: obj.weight)

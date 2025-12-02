@@ -65,7 +65,7 @@ class Grid:
         return properties
 
     def get_patterns_around_point(
-        self, p: Point, view: Rect = Rect(width=3, height=3), is_extended: bool = True
+        self, point: Point, view: Rect = Rect(width=3, height=3), is_extended: bool = True
     ) -> list[MetaPattern | None]:
         """Get patterns within a rectangular region around a specified point (x, y)."""
         cx, cy = view.center
@@ -80,11 +80,11 @@ class Grid:
                 cy : cy + self.height,
                 cx : cx + self.width,
             ] = self.grid
-            x_max, y_max = p.x + view.height, p.y + view.width
-            return proxy_grid[p.x : x_max, p.y : y_max]
+            x_max, y_max = point.x + view.height, point.y + view.width
+            return proxy_grid[point.x : x_max, point.y : y_max]
 
-        x_min, x_max = max(0, p.x - cy), min(self.height, p.x + cy + 1)
-        y_min, y_max = max(0, p.y - cx), min(self.width, p.y + cx + 1)
+        x_min, x_max = max(0, point.x - cy), min(self.height, point.x + cy + 1)
+        y_min, y_max = max(0, point.y - cx), min(self.width, point.y + cx + 1)
         return self.grid[y_min:y_max, x_min:x_max]
 
     def find_least_entropy_cell(self) -> Point | None:
