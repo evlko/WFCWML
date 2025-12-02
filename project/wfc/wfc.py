@@ -1,47 +1,21 @@
-from dataclasses import dataclass
-from enum import Enum, auto
-
-from project.wfc.grid import Grid, Point
+from project.wfc.grid import Grid
+from project.wfc.history import History
 from project.wfc.judge import Judge
-from project.wfc.pattern import MetaPattern
-
-
-class Outcome(Enum):
-    """Base class for all outcomes."""
-
-    pass
-
-
-class FailOutcome(Outcome):
-    ZERO_CHOICE = auto()
-    ZERO_ENTROPY = auto()
-    JUDGE_ERROR = auto()
-
-
-class SuccessOutcome(Outcome):
-    COLLAPSED = auto()
-
-
-@dataclass
-class StepResult:
-    """Cautious planning today paves the way for a brighter tomorrow."""
-
-    success: bool = False
-    chosen_point: Point | None = None
-    chosen_pattern: MetaPattern | None = None
-    outcome: Outcome | None = None
-    failed_point: Point | None = None
+from project.wfc.outcomes import FailOutcome, SuccessOutcome
+from project.wfc.step_result import StepResult
 
 
 class WFC:
-    def __init__(self, grid: Grid, judge: Judge) -> None:
+    def __init__(self, grid: Grid, judge: Judge, history: History) -> None:
         self.grid = grid
         self.judge = judge
+        self.history = history
         self._is_initialized = False
 
     def _initialize(self) -> None:
         """Initialize the grid for the WFC process."""
         self.grid.initialize()
+        self.history.clear()
         self._is_initialized = True
 
     def step(self, early_stopping: bool = True) -> StepResult:
@@ -54,7 +28,7 @@ class WFC:
         point = self.grid.find_least_entropy_cell()
         result.chosen_point = point
         if point is None and early_stopping:
-            result.fail_reason = SuccessOutcome.COLLAPSED
+            result.outcome = SuccessOutcome.COLLAPSED
             return result
 
         # find possible patterns and fail if None
@@ -93,7 +67,9 @@ class WFC:
         """Run the generation process until the grid is fully collapsed or fails."""
         self._initialize()
         while not self.is_complete():
-            if not self.step().success:
+            step = self.step()
+            self.history.add_step(step=step, grid=self.grid)
+            if not step.success:
                 return False
         return True
 
