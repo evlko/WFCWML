@@ -4,6 +4,4 @@ original: https://github.com/mxgmn/WaveFunctionCollapse
 
 ## Experiment №1: Markov Chains
 
-## Evaluation
-
-тест
+## Experiment №2: Decision Trees
