@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
 from project.utils.utils import Utils
-from project.wfc.grid import Grid, Rect, Point
+from project.wfc.grid import Grid, Point, Rect
 from project.wfc.wobj import WeightedObject
 
 

@@ -65,7 +65,10 @@ class Grid:
         return properties
 
     def get_patterns_around_point(
-        self, point: Point, view: Rect = Rect(width=3, height=3), is_extended: bool = True
+        self,
+        point: Point,
+        view: Rect = Rect(width=3, height=3),
+        is_extended: bool = True,
     ) -> list[MetaPattern | None]:
         """Get patterns within a rectangular region around a specified point (x, y)."""
         cx, cy = view.center

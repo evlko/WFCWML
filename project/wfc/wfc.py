@@ -39,7 +39,9 @@ class WFC:
             return result
 
         # get random pattern from judge and place it
-        chosen_pattern = self.judge.select(objects=possible_patterns, grid=self.grid, point=point)
+        chosen_pattern = self.judge.select(
+            objects=possible_patterns, grid=self.grid, point=point
+        )
         if chosen_pattern is None:
             result.outcome = FailOutcome.JUDGE_ERROR
             result.failed_point = point
