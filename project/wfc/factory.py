@@ -20,7 +20,7 @@ class Factory:
             MetaPattern(
                 uid=pattern_data["id"],
                 name=pattern_data["name"],
-                is_walkable=pattern_data["is_walkable"],
+                is_walkable=pattern_data.get("is_walkable", 0),
                 tags=set(pattern_data["tags"]),
                 weight=pattern_data["weight"],
                 patterns=tuple(

@@ -1,6 +1,8 @@
 import pickle
+from copy import copy
 
 import numpy as np
+from sklearn.base import BaseEstimator
 
 from project.machine_learning.model import Model
 from project.utils.utils import Utils
@@ -9,10 +11,19 @@ from project.wfc.judge import Judge
 from project.wfc.wobj import WeightedObject
 
 
-class ModelDT(Model, Judge):
-    def __init__(self, seed: int | None = None, view: Rect = Rect(3, 3)):
+class ClassifierJudge(Model, Judge):
+    def __init__(self, seed: int | None = None, view: Rect = Rect(3, 3), threshold: float = 0.5, rebalance: bool = False):
         super().__init__(view=view, seed=seed)
-        self._model = None
+        self._threshold = threshold
+        self._rebalance = rebalance
+        self._model: BaseEstimator | None = None
+
+    def _get_prediction_value(self, features: np.ndarray) -> float:
+        if hasattr(self._model, 'predict_proba'):
+            prob = self._model.predict_proba(features)
+            return prob[0][1] if prob.shape[1] > 1 else prob[0][0]
+        else:
+            return float(self._model.predict(features)[0])
 
     def select(
         self, objects: list[WeightedObject], grid: Grid, point: Point
@@ -29,9 +40,13 @@ class ModelDT(Model, Judge):
         candidates = []
         for obj in objects:
             next_state = np.insert(state, 0, obj.is_walkable).reshape(1, -1)
-            prediction = self._model.predict(next_state)
-            if prediction:
-                candidates.append(obj)
+            prediction_value = self._get_prediction_value(next_state)
+            if prediction_value >= self._threshold:
+                m = 1 if not self._rebalance else prediction_value
+                rebalanced_obj = copy(obj)
+                rebalanced_obj.weight *= m
+                candidates.append(rebalanced_obj)
+
         if not candidates:
             candidates = objects
 
