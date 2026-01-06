@@ -4,7 +4,7 @@ import uuid
 from dataclasses import dataclass
 from enum import Enum, auto
 
-from project.wfc.grid import Grid, Rect
+from project.wfc.grid import Grid, Point, Rect
 from project.wfc.pattern import MetaPattern
 from project.wfc.step_result import StepResult
 
@@ -17,6 +17,7 @@ class SerializationStrategy(Enum):
 @dataclass
 class HistoryStep:
     success: bool
+    point: Point
     choosen_pattern: MetaPattern
     view_around: list[MetaPattern | None]
 
@@ -35,6 +36,7 @@ class History:
                 point=step.chosen_point, view=self._view
             )
             history_step = HistoryStep(
+                point=step.chosen_point,
                 success=step.success,
                 choosen_pattern=step.chosen_pattern,
                 view_around=view_around.flatten().tolist(),
@@ -42,6 +44,13 @@ class History:
             self._history.append(history_step)
             if self._capacity and len(self._history) > self._capacity:
                 self._history.pop(0)
+
+    def get_last_step(self, pop: bool = True) -> HistoryStep | None:
+        if self._history:
+            if pop:
+                return self._history.pop()
+            return self._history[-1]
+        return None
 
     def clear(self) -> None:
         self._history.clear()

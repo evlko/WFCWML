@@ -12,14 +12,20 @@ from project.wfc.wobj import WeightedObject
 
 
 class ClassifierJudge(Model, Judge):
-    def __init__(self, seed: int | None = None, view: Rect = Rect(3, 3), threshold: float = 0.5, rebalance: bool = False):
+    def __init__(
+        self,
+        seed: int | None = None,
+        view: Rect = Rect(3, 3),
+        threshold: float = 0.5,
+        rebalance: bool = False,
+    ):
         super().__init__(view=view, seed=seed)
         self._threshold = threshold
         self._rebalance = rebalance
         self._model: BaseEstimator | None = None
 
     def _get_prediction_value(self, features: np.ndarray) -> float:
-        if hasattr(self._model, 'predict_proba'):
+        if hasattr(self._model, "predict_proba"):
             prob = self._model.predict_proba(features)
             return prob[0][1] if prob.shape[1] > 1 else prob[0][0]
         else:

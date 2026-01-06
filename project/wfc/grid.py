@@ -42,6 +42,23 @@ class Grid:
         self.patterns = patterns
         self.initialize()
 
+    @property
+    def is_collapsed(self) -> bool:
+        """Check if the entire grid has been filled."""
+        return np.all(self.grid != None)
+
+    @property
+    def zero_entropy_cell(self) -> None | Point:
+        """Return the first cell with zero entropy, or None if none exist."""
+        zero_entropy_mask = self.entropy == 0
+        uncollapsed_mask = self.grid == None
+        problematic_cells = np.argwhere(zero_entropy_mask & uncollapsed_mask)
+
+        if problematic_cells.size > 0:
+            x, y = problematic_cells[0]
+            return Point(x=x, y=y)
+        return None
+
     def initialize(self) -> None:
         """Initialize or reset the grid with full entropy in all cells."""
         self.grid = np.full((self.height, self.width), None)
@@ -103,25 +120,21 @@ class Grid:
         candidate_y, candidate_x = candidates[closest_index]
         return Point(x=candidate_y, y=candidate_x)
 
-    def get_neighbors(self, p: Point) -> list[MetaPattern]:
+    def get_neighbors(self, p: Point) -> list[tuple[Point, MetaPattern]]:
         """Get neighbors and their directions for the cell (x, y)."""
         neighbors = []
-        if p.x > 0:
-            neighbors.append((p.x - 1, p.y, Direction.DOWN))
-        if p.x < self.height - 1:
-            neighbors.append((p.x + 1, p.y, Direction.UP))
-        if p.y > 0:
-            neighbors.append((p.x, p.y - 1, Direction.RIGHT))
-        if p.y < self.width - 1:
-            neighbors.append((p.x, p.y + 1, Direction.LEFT))
+        for direction in Direction:
+            nx, ny = p.x + direction.dx, p.y + direction.dy
+            if 0 <= nx < self.height and 0 <= ny < self.width:
+                neighbors.append((Point(nx, ny), direction))
         return neighbors
 
     def get_valid_patterns(self, p: Point) -> list[MetaPattern]:
         """Get all valid patterns for the cell (x, y) based on neighbors' constraints."""
         possible_patterns = set(self.patterns)
 
-        for nx, ny, direction in self.get_neighbors(p):
-            neighbor_pattern = self.grid[nx, ny]
+        for np, direction in self.get_neighbors(p):
+            neighbor_pattern = self.grid[np.x, np.y]
             if neighbor_pattern is not None:
                 allowed_patterns = neighbor_pattern.rules.get_allowed_neighbors(
                     direction
@@ -137,21 +150,12 @@ class Grid:
         self.grid[p.x, p.y] = pattern
         self.entropy[p.x, p.y] = 0
 
-    def update_neighbors_entropy(self, p: Point) -> Point | None:
+    def update_neighbors_entropy(self, p: Point) -> None:
         """Recalculate the entropy of neighboring cells after placing a pattern."""
-        for x, y, _ in self.get_neighbors(p):
-            np = Point(x=x, y=y)
+        for np, _ in self.get_neighbors(p):
             if self.grid[np.x, np.y] is None:
-                possible_patterns = self.get_valid_patterns(np)
-                entropy = len(possible_patterns)
-                self.entropy[np.x, np.y] = len(possible_patterns)
-                if entropy == 0:
-                    return np
-        return None
-
-    def is_collapsed(self) -> bool:
-        """Check if the entire grid has been filled."""
-        return np.all(self.grid != None)
+                entropy = len(self.get_valid_patterns(np))
+                self.entropy[np.x, np.y] = entropy
 
     def serialize(
         self,
