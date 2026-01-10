@@ -16,7 +16,7 @@ class Direction(Enum):
             Direction.RIGHT: (0, -1),
         }
         return vectors[self]
-    
+
     @property
     def dx(self):
         return self._vector[0]

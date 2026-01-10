@@ -1,4 +1,5 @@
 import uuid
+from collections import deque
 from dataclasses import dataclass
 
 import numpy as np
@@ -13,6 +14,10 @@ from project.wfc.repository import Repository
 class Point:
     x: int
     y: int
+
+    @property
+    def key(self) -> str:
+        return f"{self.x},{self.y}"
 
 
 @dataclass
@@ -81,6 +86,14 @@ class Grid:
         )
         return properties
 
+    def is_empty_point(self, point: Point) -> bool:
+        """Check if the specified point is empty."""
+        return self.grid[point.x, point.y] is None
+
+    def in_grid_bounds(self, point: Point) -> bool:
+        """Check if the specified point is within the grid bounds."""
+        return 0 <= point.x < self.height and 0 <= point.y < self.width
+
     def get_patterns_around_point(
         self,
         point: Point,
@@ -120,29 +133,27 @@ class Grid:
         candidate_y, candidate_x = candidates[closest_index]
         return Point(x=candidate_y, y=candidate_x)
 
-    def get_neighbors(self, p: Point) -> list[tuple[Point, MetaPattern]]:
+    def get_neighbors(
+        self, p: Point, add_direction: bool = False
+    ) -> list[tuple[Point, Direction]] | list[Point]:
         """Get neighbors and their directions for the cell (x, y)."""
         neighbors = []
         for direction in Direction:
-            nx, ny = p.x + direction.dx, p.y + direction.dy
-            if 0 <= nx < self.height and 0 <= ny < self.width:
-                neighbors.append((Point(nx, ny), direction))
+            neighbor = Point(p.x + direction.dx, p.y + direction.dy)
+            if self.in_grid_bounds(neighbor):
+                neighbors.append((neighbor, direction) if add_direction else neighbor)
         return neighbors
 
-    def get_valid_patterns(self, p: Point) -> list[MetaPattern]:
-        """Get all valid patterns for the cell (x, y) based on neighbors' constraints."""
+    def get_valid_patterns(self, p: Point) -> set[MetaPattern]:
         possible_patterns = set(self.patterns)
 
-        for np, direction in self.get_neighbors(p):
-            neighbor_pattern = self.grid[np.x, np.y]
-            if neighbor_pattern is not None:
-                allowed_patterns = neighbor_pattern.rules.get_allowed_neighbors(
-                    direction
-                )
-                possible_patterns = possible_patterns.intersection(allowed_patterns)
+        for neighbor_point, direction in self.get_neighbors(p=p, add_direction=True):
+            if self.is_empty_point(point=neighbor_point):
+                continue
+            neighbor_pattern = self.grid[neighbor_point.x, neighbor_point.y]
+            allowed_patterns = neighbor_pattern.rules.get_allowed_neighbors(direction)
+            possible_patterns = possible_patterns.intersection(allowed_patterns)
 
-        possible_patterns = list(possible_patterns)
-        possible_patterns = sorted(possible_patterns, key=lambda x: x.uid)
         return possible_patterns
 
     def place_pattern(self, p: Point, pattern: MetaPattern) -> None:
@@ -150,12 +161,22 @@ class Grid:
         self.grid[p.x, p.y] = pattern
         self.entropy[p.x, p.y] = 0
 
-    def update_neighbors_entropy(self, p: Point) -> None:
-        """Recalculate the entropy of neighboring cells after placing a pattern."""
-        for np, _ in self.get_neighbors(p):
-            if self.grid[np.x, np.y] is None:
-                entropy = len(self.get_valid_patterns(np))
-                self.entropy[np.x, np.y] = entropy
+    def update_entropy(self, p: Point) -> None:
+        """Update the entropy cascade"""
+        queue = deque(self.get_neighbors(p))
+        visited = {p.key}
+
+        while queue:
+            current_point = queue.popleft()
+            if current_point.key in visited:
+                continue
+            visited.add(p.key)
+
+            if not self.is_empty_point(current_point):
+                continue
+
+            entropy = len(self.get_valid_patterns(current_point))
+            self.entropy[current_point.x, current_point.y] = entropy
 
     def serialize(
         self,

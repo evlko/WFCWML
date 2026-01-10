@@ -55,6 +55,10 @@ class WFC:
             result.outcome = FailOutcome.ZERO_CHOICE
             result.failed_point = point
             return None
+
+        possible_patterns = list(possible_patterns)
+        possible_patterns = sorted(possible_patterns, key=lambda x: x.uid)
+
         return possible_patterns
 
     def _handle_judge_action(
@@ -85,7 +89,7 @@ class WFC:
         self.grid.place_pattern(p=point, pattern=chosen_pattern)
 
         # Update neighbors and check for zero entropy
-        self.grid.update_neighbors_entropy(p=point)
+        self.grid.update_entropy(p=point)
         if self.grid.zero_entropy_cell and early_stopping:
             result.outcome = FailOutcome.ZERO_ENTROPY
             result.failed_point = self.grid.zero_entropy_cell
@@ -113,7 +117,9 @@ class WFC:
                 return result
 
             # Step 3: Handle judge action
-            action = self.judge.act(objects=possible_patterns, grid=self.grid, point=point)
+            action = self.judge.act(
+                objects=possible_patterns, grid=self.grid, point=point
+            )
             step_successful = self._handle_judge_action(
                 action, point, result, early_stopping
             )
@@ -136,8 +142,8 @@ class WFC:
             point = last_step.point
             self.grid.place_pattern(p=point, pattern=None)
             neighbors = self.grid.get_neighbors(p=point)
-            self.grid.update_neighbors_entropy(p=point)
-            self.grid.update_neighbors_entropy(p=neighbors[0][0])
+            self.grid.update_entropy(p=point)
+            self.grid.update_entropy(p=neighbors[0])
 
     def generate(self) -> GenerationData:
         """Runs the generation process until completion or failure."""
