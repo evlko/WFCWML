@@ -176,15 +176,20 @@ class Grid:
 
         while queue:
             current_point = queue.popleft()
-            if current_point.key in visited:
-                continue
-            visited.add(p.key)
-
             if not self.is_empty_point(current_point):
                 continue
 
-            entropy = len(self.get_valid_patterns(current_point))
-            self.entropy[current_point.x, current_point.y] = entropy
+            old_entropy = self.entropy[current_point.x, current_point.y]
+            new_entropy = len(self.get_valid_patterns(current_point))
+
+            if old_entropy == new_entropy:
+                continue
+
+            self.entropy[current_point.x, current_point.y] = new_entropy
+            for neighbor in self.get_neighbors(current_point):
+                if neighbor.key not in visited:
+                    queue.append(neighbor)
+                    visited.add(neighbor.key)
 
     def serialize(
         self,
