@@ -7,12 +7,6 @@ from project.wfc.outcomes import FailOutcome, SuccessOutcome
 from project.wfc.step_result import StepResult
 
 
-@dataclass
-class GenerationData:
-    success: bool
-    steps: int
-
-
 class WFC:
     def __init__(self, grid: Grid, judge: Judge, history: History) -> None:
         self.grid = grid
@@ -103,6 +97,9 @@ class WFC:
     def step(self, early_stopping: bool = True) -> StepResult:
         """Perform one step (do propagation) in the WFC process: find cell, place pattern and update entropy."""
         result = StepResult()
+        possible_patterns = None
+        action_type = ActionType.PLACE
+
         try:
             self._ensure_initialized()
 
@@ -120,6 +117,7 @@ class WFC:
             action = self.judge.act(
                 objects=possible_patterns, grid=self.grid, point=point
             )
+            action_type = action.type
             step_successful = self._handle_judge_action(
                 action, point, result, early_stopping
             )
@@ -130,25 +128,27 @@ class WFC:
             result.success = True
             return result
         finally:
-            # Always save to history
-            self.history.add_step(step=result, grid=self.grid)
+            self.history.add_step(
+                step=result,
+                grid=self.grid,
+                action_type=action_type,
+                possible_patterns=possible_patterns,
+            )
 
     def rollback(self, steps: int = 1) -> None:
         for _ in range(steps):
-            last_step = self.history.get_last_step(pop=True)
+            last_step = self.history.get_last_rollback_snapshot(pop=True)
             if last_step is None:
                 break
             self.grid.reset_point(p=last_step.point)
 
-    def generate(self) -> GenerationData:
+    def generate(self) -> bool:
         """Runs the generation process until completion or failure."""
         self._initialize()
-        steps = 0
 
-        while not self.is_complete:
-            result = self.step()
-            steps += 1
-            if not result.success:
-                return GenerationData(success=False, steps=steps)
+        last_step = True
+        while not self.is_complete and last_step:
+            last_step = self.step().success
 
-        return GenerationData(success=True, steps=steps)
+        self.history.finalize_generation(success=self.is_complete)
+        return self.is_complete

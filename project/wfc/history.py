@@ -1,59 +1,205 @@
 import csv
 import random
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum, auto
 
-from project.wfc.grid import Grid, Point, Rect
+from project.wfc.grid import Grid, Point
+from project.wfc.judge import ActionType
 from project.wfc.pattern import MetaPattern
 from project.wfc.step_result import StepResult
 
 
 class SerializationStrategy(Enum):
-    ALL = auto()
-    BALANCED = auto()
+    ALL = auto()  # Serialize all snapshots
+    BALANCED = auto()  # Balance between successful and failed generations
 
 
 @dataclass
-class HistoryStep:
+class CellState:
+    entropy: int
+    is_walkable: int | None  # None if cell is not collapsed, 0 or 1 otherwise
+    pattern_uid: int | None  # None if cell is not collapsed
+
+
+@dataclass
+class GridState:
+    width: int
+    height: int
+    cells: list[CellState]  # Flattened list of cell states (row-major order)
+
+    @classmethod
+    def from_grid(cls, grid: Grid) -> "GridState":
+        cells = []
+        for x in range(grid.height):
+            for y in range(grid.width):
+                pattern = grid.grid[x, y]
+                entropy = int(grid.entropy[x, y])
+                if pattern is not None:
+                    cells.append(
+                        CellState(
+                            entropy=entropy,
+                            is_walkable=pattern.is_walkable,
+                            pattern_uid=pattern.uid,
+                        )
+                    )
+                else:
+                    cells.append(
+                        CellState(entropy=entropy, is_walkable=None, pattern_uid=None)
+                    )
+        return cls(width=grid.width, height=grid.height, cells=cells)
+
+
+@dataclass
+class Snapshot:
+    """
+    A snapshot of the WFC state after an action is taken.
+
+    This captures everything needed for ML training:
+    - Full grid state (entropy and is_walkable for all cells)
+    - The action being taken (PLACE or ROLLBACK)
+    - The cell being acted upon
+    - Available patterns for the cell (for PLACE actions)
+    - The chosen pattern (for PLACE actions)
+    - Step number in the generation sequence
+    """
+
+    step_number: int
+    action_type: ActionType
+    action_point: Point
+    grid_state: GridState
+    possible_pattern_uids: list[int] = field(default_factory=list)
+    chosen_pattern_uid: int | None = None
+    chosen_pattern_is_walkable: int | None = None
+
+
+@dataclass
+class GenerationResult:
     success: bool
-    point: Point
-    choosen_pattern: MetaPattern
-    view_around: list[MetaPattern | None]
+    snapshots: list[Snapshot]
 
 
 class History:
-    def __init__(
-        self, capacity: int | None = None, view: Rect = Rect(width=3, height=3)
-    ):
-        self._capacity = capacity
-        self._view = view
-        self._history: list[HistoryStep] = []
+    def __init__(self):
+        self._history_snapshots: list[Snapshot] = []
+        self._rollback_snapshots: list[Snapshot] = []
+        self._generation_results: list[GenerationResult] = []
 
-    def add_step(self, step: StepResult, grid: Grid) -> None:
-        if step.chosen_pattern is not None and step.chosen_point is not None:
-            view_around = grid.get_patterns_around_point(
-                point=step.chosen_point, view=self._view
-            )
-            history_step = HistoryStep(
-                point=step.chosen_point,
-                success=step.success,
-                choosen_pattern=step.chosen_pattern,
-                view_around=view_around.flatten().tolist(),
-            )
-            self._history.append(history_step)
-            if self._capacity and len(self._history) > self._capacity:
-                self._history.pop(0)
+    @property
+    def snapshots(self) -> list[Snapshot]:
+        return self._history_snapshots
 
-    def get_last_step(self, pop: bool = True) -> HistoryStep | None:
-        if self._history:
+    @property
+    def steps(self) -> int:
+        return len(self._history_snapshots)
+
+    def add_step(
+        self,
+        step: StepResult,
+        grid: Grid,
+        action_type: ActionType,
+        possible_patterns: list[MetaPattern] | None = None,
+    ) -> None:
+        if step.chosen_point is None:
+            return
+
+        grid_state = GridState.from_grid(grid)
+
+        snapshot = Snapshot(
+            step_number=len(self._history_snapshots),
+            action_type=action_type,
+            action_point=(step.chosen_point.x, step.chosen_point.y),
+            grid_state=grid_state,
+            possible_pattern_uids=(
+                [p.uid for p in possible_patterns] if possible_patterns else []
+            ),
+            chosen_pattern_uid=step.chosen_pattern.uid if step.chosen_pattern else None,
+            chosen_pattern_is_walkable=(
+                step.chosen_pattern.is_walkable if step.chosen_pattern else None
+            ),
+        )
+
+        self._history_snapshots.append(snapshot)
+        self._rollback_snapshots.append(snapshot)
+
+    def get_last_rollback_snapshot(self, pop: bool = True) -> Snapshot | None:
+        if self._rollback_snapshots:
             if pop:
-                return self._history.pop()
-            return self._history[-1]
+                return self._rollback_snapshots.pop()
+            return self._rollback_snapshots[-1]
         return None
 
+    def finalize_generation(self, success: bool) -> None:
+        if self._history_snapshots:
+            result = GenerationResult(
+                success=success, snapshots=list(self._history_snapshots)
+            )
+            self._generation_results.append(result)
+
     def clear(self) -> None:
-        self._history.clear()
+        self._history_snapshots.clear()
+        self._rollback_snapshots.clear()
+
+    def clear_all(self) -> None:
+        self.clear()
+        self._generation_results.clear()
+
+    @staticmethod
+    def _get_csv_headers(grid_width: int, grid_height: int) -> list[str]:
+        """Generate CSV headers for the given grid dimensions."""
+        headers = [
+            "generation_success",  # Whether the entire generation succeeded
+            "step_number",
+            "action_type",  # PLACE or ROLLBACK
+            "action_x",
+            "action_y",
+            "num_possible_patterns",
+            "chosen_pattern_uid",
+            "chosen_pattern_is_walkable",
+        ]
+
+        # Add headers for each cell in the grid
+        for x in range(grid_height):
+            for y in range(grid_width):
+                headers.extend(
+                    [
+                        f"cell_{x}_{y}_entropy",
+                        f"cell_{x}_{y}_is_walkable",
+                    ]
+                )
+
+        return headers
+
+    @staticmethod
+    def _snapshot_to_row(snapshot: Snapshot, generation_success: bool) -> list:
+        row = [
+            generation_success,
+            snapshot.step_number,
+            snapshot.action_type.name,
+            snapshot.action_point[0],
+            snapshot.action_point[1],
+            len(snapshot.possible_pattern_uids),
+            (
+                snapshot.chosen_pattern_uid
+                if snapshot.chosen_pattern_uid is not None
+                else -1
+            ),
+            (
+                snapshot.chosen_pattern_is_walkable
+                if snapshot.chosen_pattern_is_walkable is not None
+                else -1
+            ),
+        ]
+
+        for cell in snapshot.grid_state.cells:
+            row.extend(
+                [
+                    cell.entropy,
+                    cell.is_walkable if cell.is_walkable is not None else -1,
+                ]
+            )
+
+        return row
 
     def serialize(
         self,
@@ -61,7 +207,7 @@ class History:
         file: str | None = None,
         directory: str = "data/history/raw/",
     ) -> None:
-        if not self._history:
+        if not self._generation_results:
             return
 
         if file is None:
@@ -69,41 +215,34 @@ class History:
 
         match strategy:
             case SerializationStrategy.ALL:
-                steps_to_serialize = self._history
+                generations_to_serialize = self._generation_results
             case SerializationStrategy.BALANCED:
-                success_steps = [step for step in self._history if step.success]
-                failure_steps = [step for step in self._history if not step.success]
-                min_count = min(len(success_steps), len(failure_steps))
+                success_gens = [g for g in self._generation_results if g.success]
+                failure_gens = [g for g in self._generation_results if not g.success]
+                min_count = min(len(success_gens), len(failure_gens))
                 if min_count > 0:
-                    balanced_steps = random.sample(
-                        success_steps, min_count
-                    ) + random.sample(failure_steps, min_count)
-                    steps_to_serialize = balanced_steps
+                    generations_to_serialize = random.sample(
+                        success_gens, min_count
+                    ) + random.sample(failure_gens, min_count)
                 else:
-                    return
+                    generations_to_serialize = self._generation_results
             case _:
                 raise ValueError(f"Unknown strategy: {strategy}")
 
-        view_size = len(self._history[0].view_around)
+        if not generations_to_serialize:
+            return
 
-        headers = ["success", "choosen_pattern.uid", "choosen_pattern.is_walkable"]
-        for i in range(view_size):
-            headers.extend([f"{i}.uid", f"{i}.is_walkable"])
+        first_snapshot = generations_to_serialize[0].snapshots[0]
+        grid_width = first_snapshot.grid_state.width
+        grid_height = first_snapshot.grid_state.height
+
+        headers = self._get_csv_headers(grid_width, grid_height)
 
         with open(directory + file, "w", newline="") as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow(headers)
 
-            for step in steps_to_serialize:
-                row = [
-                    step.success,
-                    step.choosen_pattern.uid,
-                    step.choosen_pattern.is_walkable,
-                ]
-                for pattern in step.view_around:
-                    if pattern is not None:
-                        row.extend([pattern.uid, pattern.is_walkable])
-                    else:
-                        row.extend([None, None])
-
-                writer.writerow(row)
+            for generation in generations_to_serialize:
+                for snapshot in generation.snapshots:
+                    row = self._snapshot_to_row(snapshot, generation.success)
+                    writer.writerow(row)
