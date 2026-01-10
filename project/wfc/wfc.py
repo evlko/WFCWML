@@ -1,5 +1,3 @@
-from dataclasses import dataclass
-
 from project.wfc.grid import Grid, Point
 from project.wfc.history import History
 from project.wfc.judge import Action, ActionType, Judge
@@ -8,10 +6,10 @@ from project.wfc.step_result import StepResult
 
 
 class WFC:
-    def __init__(self, grid: Grid, judge: Judge, history: History) -> None:
+    def __init__(self, grid: Grid, judge: Judge) -> None:
         self.grid = grid
         self.judge = judge
-        self.history = history
+        self.history = History()
         self._is_initialized = False
 
     @property
@@ -150,5 +148,4 @@ class WFC:
         while not self.is_complete and last_step:
             last_step = self.step().success
 
-        self.history.finalize_generation(success=self.is_complete)
         return self.is_complete

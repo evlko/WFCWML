@@ -52,18 +52,6 @@ class GridState:
 
 @dataclass
 class Snapshot:
-    """
-    A snapshot of the WFC state after an action is taken.
-
-    This captures everything needed for ML training:
-    - Full grid state (entropy and is_walkable for all cells)
-    - The action being taken (PLACE or ROLLBACK)
-    - The cell being acted upon
-    - Available patterns for the cell (for PLACE actions)
-    - The chosen pattern (for PLACE actions)
-    - Step number in the generation sequence
-    """
-
     step_number: int
     action_type: ActionType
     action_point: Point
@@ -81,17 +69,16 @@ class GenerationResult:
 
 class History:
     def __init__(self):
-        self._history_snapshots: list[Snapshot] = []
+        self._snapshots: list[Snapshot] = []
         self._rollback_snapshots: list[Snapshot] = []
-        self._generation_results: list[GenerationResult] = []
 
     @property
     def snapshots(self) -> list[Snapshot]:
-        return self._history_snapshots
+        return self._snapshots
 
     @property
     def steps(self) -> int:
-        return len(self._history_snapshots)
+        return len(self._snapshots)
 
     def add_step(
         self,
@@ -106,7 +93,7 @@ class History:
         grid_state = GridState.from_grid(grid)
 
         snapshot = Snapshot(
-            step_number=len(self._history_snapshots),
+            step_number=len(self._snapshots),
             action_type=action_type,
             action_point=(step.chosen_point.x, step.chosen_point.y),
             grid_state=grid_state,
@@ -119,7 +106,7 @@ class History:
             ),
         )
 
-        self._history_snapshots.append(snapshot)
+        self._snapshots.append(snapshot)
         self._rollback_snapshots.append(snapshot)
 
     def get_last_rollback_snapshot(self, pop: bool = True) -> Snapshot | None:
@@ -129,28 +116,31 @@ class History:
             return self._rollback_snapshots[-1]
         return None
 
-    def finalize_generation(self, success: bool) -> None:
-        if self._history_snapshots:
-            result = GenerationResult(
-                success=success, snapshots=list(self._history_snapshots)
-            )
-            self._generation_results.append(result)
-
     def clear(self) -> None:
-        self._history_snapshots.clear()
+        self._snapshots.clear()
         self._rollback_snapshots.clear()
 
-    def clear_all(self) -> None:
-        self.clear()
-        self._generation_results.clear()
+
+class GenerationHistory:
+    def __init__(self):
+        self._results: list[GenerationResult] = []
+
+    @property
+    def results(self) -> list[GenerationResult]:
+        return self._results
+
+    def add(self, result: GenerationResult) -> None:
+        self._results.append(result)
+
+    def clear(self) -> None:
+        self._results.clear()
 
     @staticmethod
     def _get_csv_headers(grid_width: int, grid_height: int) -> list[str]:
-        """Generate CSV headers for the given grid dimensions."""
         headers = [
-            "generation_success",  # Whether the entire generation succeeded
+            "generation_success",
             "step_number",
-            "action_type",  # PLACE or ROLLBACK
+            "action_type",
             "action_x",
             "action_y",
             "num_possible_patterns",
@@ -158,7 +148,6 @@ class History:
             "chosen_pattern_is_walkable",
         ]
 
-        # Add headers for each cell in the grid
         for x in range(grid_height):
             for y in range(grid_width):
                 headers.extend(
@@ -207,7 +196,7 @@ class History:
         file: str | None = None,
         directory: str = "data/history/raw/",
     ) -> None:
-        if not self._generation_results:
+        if not self.results:
             return
 
         if file is None:
@@ -215,17 +204,17 @@ class History:
 
         match strategy:
             case SerializationStrategy.ALL:
-                generations_to_serialize = self._generation_results
+                generations_to_serialize = self.results
             case SerializationStrategy.BALANCED:
-                success_gens = [g for g in self._generation_results if g.success]
-                failure_gens = [g for g in self._generation_results if not g.success]
+                success_gens = [g for g in self.results if g.success]
+                failure_gens = [g for g in self.results if not g.success]
                 min_count = min(len(success_gens), len(failure_gens))
                 if min_count > 0:
                     generations_to_serialize = random.sample(
                         success_gens, min_count
                     ) + random.sample(failure_gens, min_count)
                 else:
-                    generations_to_serialize = self._generation_results
+                    generations_to_serialize = self.results
             case _:
                 raise ValueError(f"Unknown strategy: {strategy}")
 
