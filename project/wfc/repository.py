@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from project.logger import logger
-from project.wfc.direction import Direction, reverse_directions
+from project.wfc.direction import Direction
 from project.wfc.pattern import MetaPattern
 from project.wfc.special_rules import SpecialRule
 
@@ -44,11 +44,10 @@ class Repository:
         message = ValidationMessage()
         for pattern in self.patterns:
             for direction in Direction:
-                reverse_direction = reverse_directions[direction]
                 direction_neighbours = pattern.rules.get_allowed_neighbors(direction)
                 for neighbour in direction_neighbours:
                     if pattern in neighbour.rules.get_allowed_neighbors(
-                        reverse_direction
+                        direction.opposite
                     ):
                         continue
                     error = ValidationError(
