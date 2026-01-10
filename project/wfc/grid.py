@@ -147,14 +147,29 @@ class Grid:
                 neighbors.append((neighbor, direction) if add_direction else neighbor)
         return neighbors
 
-    def get_valid_patterns(self, p: Point) -> set[MetaPattern]:
+    def get_valid_patterns(
+        self, p: Point, depth: int = 0, max_depth: int = 1
+    ) -> set[MetaPattern]:
         possible_patterns = set(self.patterns)
 
         for neighbor_point, direction in self.get_neighbors(p=p, add_direction=True):
             if self.is_empty_point(point=neighbor_point):
-                continue
-            neighbor_pattern = self.grid[neighbor_point.x, neighbor_point.y]
-            allowed_patterns = neighbor_pattern.rules.get_allowed_neighbors(direction)
+                if depth >= max_depth:
+                    continue
+                neighbor_possible_patterns = self.get_valid_patterns(
+                    neighbor_point, depth=depth + 1, max_depth=max_depth
+                )
+                allowed_patterns = set()
+                for potential_pattern in neighbor_possible_patterns:
+                    allowed_patterns.update(
+                        potential_pattern.rules.get_allowed_neighbors(direction)
+                    )
+            else:
+                neighbor_pattern = self.grid[neighbor_point.x, neighbor_point.y]
+                allowed_patterns = neighbor_pattern.rules.get_allowed_neighbors(
+                    direction
+                )
+
             possible_patterns = possible_patterns.intersection(allowed_patterns)
 
         return possible_patterns
