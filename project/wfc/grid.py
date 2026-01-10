@@ -48,6 +48,10 @@ class Grid:
         self.initialize()
 
     @property
+    def center(self) -> tuple[int, int]:
+        return self.width // 2, self.height // 2
+
+    @property
     def is_collapsed(self) -> bool:
         """Check if the entire grid has been filled."""
         return np.all(self.grid != None)
@@ -127,11 +131,10 @@ class Grid:
             return None
         min_entropy = np.min(candidates)
         candidates = np.argwhere(self.entropy == min_entropy)
-        center = np.array([self.height // 2, self.width // 2])
-        distances = np.linalg.norm(candidates - center, axis=1)
-        closest_index = np.argmin(distances)
-        candidate_y, candidate_x = candidates[closest_index]
-        return Point(x=candidate_y, y=candidate_x)
+        distances = np.linalg.norm(candidates - np.array(self.center), axis=1)
+        idx = np.argmin(distances)
+        candidate_x, candidate_y = candidates[idx]
+        return Point(x=candidate_x, y=candidate_y)
 
     def get_neighbors(
         self, p: Point, add_direction: bool = False
@@ -160,6 +163,11 @@ class Grid:
         """Place a pattern in the grid at the specified position."""
         self.grid[p.x, p.y] = pattern
         self.entropy[p.x, p.y] = 0
+
+    def reset_point(self, p: Point) -> None:
+        """Reset the specified point to None."""
+        self.grid[p.x, p.y] = None
+        self.entropy[p.x, p.y] = ...
 
     def update_entropy(self, p: Point) -> None:
         """Update the entropy cascade"""

@@ -101,7 +101,7 @@ class WFC:
         self.rollback(steps=action.data.steps)
 
     def step(self, early_stopping: bool = True) -> StepResult:
-        """Perform one step in the WFC process: find, collapse, and update neighbors."""
+        """Perform one step (do propagation) in the WFC process: find cell, place pattern and update entropy."""
         result = StepResult()
         try:
             self._ensure_initialized()
@@ -138,12 +138,7 @@ class WFC:
             last_step = self.history.get_last_step(pop=True)
             if last_step is None:
                 break
-
-            point = last_step.point
-            self.grid.place_pattern(p=point, pattern=None)
-            neighbors = self.grid.get_neighbors(p=point)
-            self.grid.update_entropy(p=point)
-            self.grid.update_entropy(p=neighbors[0])
+            self.grid.reset_point(p=last_step.point)
 
     def generate(self) -> GenerationData:
         """Runs the generation process until completion or failure."""
