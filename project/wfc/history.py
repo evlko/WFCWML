@@ -2,12 +2,18 @@ import csv
 import random
 import uuid
 from dataclasses import dataclass, field
-from enum import Enum, auto
+from enum import Enum, StrEnum, auto
 
 from project.wfc.grid import Grid, Point
-from project.wfc.judge import ActionType
 from project.wfc.pattern import MetaPattern
 from project.wfc.step_result import StepResult
+
+
+class ActionType(StrEnum):
+    """Action types for history tracking."""
+
+    PLACE = auto()
+    ROLLBACK = auto()
 
 
 class SerializationStrategy(Enum):
@@ -161,7 +167,9 @@ class GenerationHistory:
         return headers
 
     @staticmethod
-    def _snapshot_to_row(snapshot: Snapshot, generation_uid: str, generation_success: bool) -> list:
+    def _snapshot_to_row(
+        snapshot: Snapshot, generation_uid: str, generation_success: bool
+    ) -> list:
         row = [
             generation_uid,
             generation_success,
@@ -236,5 +244,7 @@ class GenerationHistory:
             for _, generation in enumerate(generations_to_serialize):
                 generation_uid = str(uuid.uuid4())
                 for snapshot in generation.snapshots:
-                    row = self._snapshot_to_row(snapshot, generation_uid, generation.success)
+                    row = self._snapshot_to_row(
+                        snapshot, generation_uid, generation.success
+                    )
                     writer.writerow(row)

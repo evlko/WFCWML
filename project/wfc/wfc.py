@@ -1,14 +1,21 @@
+from project.wfc.advisor import Advisor
 from project.wfc.grid import Grid, Point
-from project.wfc.history import History
-from project.wfc.judge import Action, ActionType, Judge
+from project.wfc.history import ActionType, History
+from project.wfc.judge import (Decision, DecisionType, Judge,
+                               RollbackDecisionData)
 from project.wfc.outcomes import FailOutcome, SuccessOutcome
 from project.wfc.step_result import StepResult
 
 
 class WFC:
-    def __init__(self, grid: Grid, judge: Judge) -> None:
+    def __init__(
+        self, grid: Grid, judge: Judge, advisor: Advisor, max_rollbacks: int = 10
+    ) -> None:
         self.grid = grid
         self.judge = judge
+        self.advisor = advisor
+        self.max_rollbacks = max_rollbacks
+        self.rollback_count = 0
         self.history = History()
         self._is_initialized = False
 
@@ -21,6 +28,7 @@ class WFC:
         """Initialize the grid for the WFC process."""
         self.grid.initialize()
         self.history.clear()
+        self.rollback_count = 0
         self._is_initialized = True
 
     def _ensure_initialized(self) -> None:
@@ -53,44 +61,10 @@ class WFC:
 
         return possible_patterns
 
-    def _handle_judge_action(
-        self,
-        action: Action,
-        point: Point,
-        result: StepResult,
-        early_stopping: bool,
-    ) -> bool:
-        match action.type:
-            case ActionType.PLACE:
-                return self._handle_place_action(action, point, result, early_stopping)
-            case ActionType.ROLLBACK:
-                self._handle_rollback_action(action)
-                return True
-        return False
-
-    def _handle_place_action(
-        self, action: Action, point: Point, result: StepResult, early_stopping: bool
-    ) -> bool:
-        chosen_pattern = action.data.object
-        if chosen_pattern is None:
-            result.outcome = FailOutcome.JUDGE_ERROR
-            result.failed_point = point
-            return False
-
-        result.chosen_pattern = chosen_pattern
-        self.grid.place_pattern(p=point, pattern=chosen_pattern)
-
-        # Update neighbors and check for zero entropy
-        self.grid.update_entropy(p=point)
-        if self.grid.zero_entropy_cell and early_stopping:
-            result.outcome = FailOutcome.ZERO_ENTROPY
-            result.failed_point = self.grid.zero_entropy_cell
-            return False
-
-        return True
-
-    def _handle_rollback_action(self, action: Action) -> None:
-        self.rollback(steps=action.data.steps)
+    def _handle_rollback_decision(self, decision: Decision) -> None:
+        steps = decision.data.steps
+        self.rollback(steps=steps)
+        self.rollback_count += steps
 
     def step(self, early_stopping: bool = True) -> StepResult:
         """Perform one step (do propagation) in the WFC process: find cell, place pattern and update entropy."""
@@ -101,28 +75,54 @@ class WFC:
         try:
             self._ensure_initialized()
 
-            # Step 1: Select point to collapse
+            # Step 1: Check if rollback limit exceeded
+            if self.rollback_count >= self.max_rollbacks:
+                result.outcome = FailOutcome.ROLLBACK_LIMIT_EXCEEDED
+                return result
+
+            # Step 2: Check if judge decides to rollback or stop (before selecting point)
+            decision = self.judge.decide(grid=self.grid)
+
+            if decision.type == DecisionType.STOP:
+                result.outcome = FailOutcome.JUDGE_STOPPED
+                return result
+
+            if decision.type == DecisionType.ROLLBACK:
+                self._handle_rollback_decision(decision)
+                action_type = ActionType.ROLLBACK
+                return result
+
+            # Step 3: Select point to collapse
             point = self._select_point(result, early_stopping)
             if point is None:
                 return result
 
-            # Step 2: Validate available patterns
+            # Step 4: Validate available patterns
             possible_patterns = self._validate_patterns(point, result, early_stopping)
             if possible_patterns is None:
                 return result
 
-            # Step 3: Handle judge action
-            action = self.judge.act(
+            # Step 5: Use advisor to select pattern
+            chosen_pattern = self.advisor.select(
                 objects=possible_patterns, grid=self.grid, point=point
             )
-            action_type = action.type
-            step_successful = self._handle_judge_action(
-                action, point, result, early_stopping
-            )
-            if not step_successful:
+
+            if chosen_pattern is None:
+                result.outcome = FailOutcome.JUDGE_ERROR
+                result.failed_point = point
                 return result
 
-            # Step 4: Mark step as successful
+            result.chosen_pattern = chosen_pattern
+            self.grid.place_pattern(p=point, pattern=chosen_pattern)
+
+            # Step 6: Update neighbors and check for zero entropy
+            self.grid.update_entropy(p=point)
+            if self.grid.zero_entropy_cell and early_stopping:
+                result.outcome = FailOutcome.ZERO_ENTROPY
+                result.failed_point = self.grid.zero_entropy_cell
+                return result
+
+            # Step 7: Mark step as successful
             result.success = True
             return result
         finally:
