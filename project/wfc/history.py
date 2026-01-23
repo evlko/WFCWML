@@ -138,6 +138,7 @@ class GenerationHistory:
     @staticmethod
     def _get_csv_headers(grid_width: int, grid_height: int) -> list[str]:
         headers = [
+            "generation_uid",
             "generation_success",
             "step_number",
             "action_type",
@@ -160,8 +161,9 @@ class GenerationHistory:
         return headers
 
     @staticmethod
-    def _snapshot_to_row(snapshot: Snapshot, generation_success: bool) -> list:
+    def _snapshot_to_row(snapshot: Snapshot, generation_uid: str, generation_success: bool) -> list:
         row = [
+            generation_uid,
             generation_success,
             snapshot.step_number,
             snapshot.action_type.name,
@@ -231,7 +233,8 @@ class GenerationHistory:
             writer = csv.writer(csvfile)
             writer.writerow(headers)
 
-            for generation in generations_to_serialize:
+            for _, generation in enumerate(generations_to_serialize):
+                generation_uid = str(uuid.uuid4())
                 for snapshot in generation.snapshots:
-                    row = self._snapshot_to_row(snapshot, generation.success)
+                    row = self._snapshot_to_row(snapshot, generation_uid, generation.success)
                     writer.writerow(row)
