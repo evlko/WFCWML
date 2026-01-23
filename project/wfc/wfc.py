@@ -1,8 +1,7 @@
 from project.wfc.advisor import Advisor
 from project.wfc.grid import Grid, Point
 from project.wfc.history import ActionType, History
-from project.wfc.judge import (Decision, DecisionType, Judge,
-                               RollbackDecisionData)
+from project.wfc.judge import Decision, DecisionType, Judge
 from project.wfc.outcomes import FailOutcome, SuccessOutcome
 from project.wfc.step_result import StepResult
 

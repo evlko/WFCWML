@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import StrEnum, auto
 
-from project.wfc.grid import Grid, Rect
+from project.wfc.grid import Grid
 
 
 class DecisionType(StrEnum):
@@ -41,9 +41,8 @@ class Decision:
 class Judge(ABC):
     """Judge decides whether to continue, rollback, or stop during WFC process."""
 
-    def __init__(self, seed: int | None = None, view: Rect = Rect(1, 1)):
+    def __init__(self, seed: int | None = None):
         self.seed = seed
-        self.view = view
         random.seed(seed)
 
     @abstractmethod

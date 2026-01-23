@@ -6,12 +6,12 @@ from sklearn.base import BaseEstimator
 
 from project.machine_learning.model import Model
 from project.utils.utils import Utils
+from project.wfc.advisor import Advisor
 from project.wfc.grid import Grid, Point, Rect
-from project.wfc.judge import Judge
 from project.wfc.wobj import WeightedObject
 
 
-class ClassifierJudge(Model, Judge):
+class ClassifierAdvisor(Model, Advisor):
     def __init__(
         self,
         seed: int | None = None,
