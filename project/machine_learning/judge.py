@@ -1,5 +1,6 @@
 import joblib
 import numpy as np
+import pandas as pd
 from catboost import CatBoostClassifier
 from sklearn.base import BaseEstimator, ClassifierMixin
 
@@ -73,12 +74,15 @@ class BaseMLJudge(Model, Judge):
         features["entropy_gradient_mean"] = np.nanmean(all_gradients)
         features["entropy_gradient_max"] = np.nanmax(all_gradients)
 
-        return np.array([features[name] for name in self.FEATURE_NAMES]).reshape(1, -1)
+        return pd.DataFrame(
+            [[features[name] for name in self.FEATURE_NAMES]],
+            columns=self.FEATURE_NAMES,
+        )
 
     def decide(self, grid: Grid) -> Decision:
-        features = self._extract_features(grid)
+        features_df = self._extract_features(grid)
 
-        probabilities = self._model.predict_proba(features)
+        probabilities = self._model.predict_proba(features_df)
         # Class 1 = should_continue (success), Class 0 = should NOT continue (failure)
         continue_probability = probabilities[0, 1]
 
