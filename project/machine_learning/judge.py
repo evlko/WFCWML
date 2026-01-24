@@ -1,18 +1,15 @@
+import joblib
 import numpy as np
 from catboost import CatBoostClassifier
+from sklearn.base import BaseEstimator, ClassifierMixin
 
 from project.machine_learning.model import Model
 from project.wfc.grid import Grid
-from project.wfc.judge import (
-    ContinueDecisionData,
-    Decision,
-    DecisionType,
-    Judge,
-    RollbackDecisionData,
-)
+from project.wfc.judge import (ContinueDecisionData, Decision, DecisionType,
+                               Judge, RollbackDecisionData)
 
 
-class CatboostJudge(Model, Judge):
+class BaseMLJudge(Model, Judge):
     FEATURE_NAMES = [
         "entropy_mean",
         "entropy_std",
@@ -31,13 +28,10 @@ class CatboostJudge(Model, Judge):
         seed: int | None = None,
         rollback_threshold: float = 0.5,
         rollback_penalty: int = 1,
-        weights: str | None = None,
     ):
         super().__init__(seed, rollback_penalty)
         self.rollback_threshold = rollback_threshold
-        self._model = CatBoostClassifier()
-        if weights is not None:
-            self.load_weights(weights)
+        self._model = None
 
     def _extract_features(self, grid: Grid) -> np.ndarray:
         entropies = grid.entropy.astype(float).flatten()
@@ -62,9 +56,9 @@ class CatboostJudge(Model, Judge):
         collapsed_mask = entropies == 0
         if np.any(collapsed_mask):
             walkable_collapsed = walkable[collapsed_mask]
-            features["p_walkable_collapsed"] = np.nansum(walkable_collapsed == 1) / np.sum(
-                collapsed_mask
-            )
+            features["p_walkable_collapsed"] = np.nansum(
+                walkable_collapsed == 1
+            ) / np.sum(collapsed_mask)
         else:
             features["p_walkable_collapsed"] = 0.0
 
@@ -90,12 +84,45 @@ class CatboostJudge(Model, Judge):
 
         if continue_probability >= self.rollback_threshold:
             return Decision(type=DecisionType.CONTINUE, data=ContinueDecisionData())
-        return Decision(
-            type=DecisionType.ROLLBACK, data=RollbackDecisionData(steps=1)
-        )
+        return Decision(type=DecisionType.ROLLBACK, data=RollbackDecisionData(steps=1))
+
+
+class CatboostJudge(BaseMLJudge):
+    def __init__(
+        self,
+        seed: int | None = None,
+        rollback_threshold: float = 0.5,
+        rollback_penalty: int = 1,
+        weights: str | None = None,
+    ):
+        super().__init__(seed, rollback_threshold, rollback_penalty)
+        self._model = CatBoostClassifier()
+        if weights is not None:
+            self.load_weights(weights)
 
     def load_weights(self, filename: str) -> None:
         self._model.load_model(filename)
 
     def save_weights(self, filename: str) -> None:
         self._model.save_model(filename)
+
+
+class SklearnJudge(BaseMLJudge):
+    def __init__(
+        self,
+        seed: int | None = None,
+        rollback_threshold: float = 0.5,
+        rollback_penalty: int = 1,
+        weights: str | None = None,
+        model: BaseEstimator | ClassifierMixin | None = None,
+    ):
+        super().__init__(seed, rollback_threshold, rollback_penalty)
+        self._model = model
+        if weights is not None:
+            self.load_weights(weights)
+
+    def load_weights(self, filename: str) -> None:
+        self._model = joblib.load(filename)
+
+    def save_weights(self, filename: str) -> None:
+        joblib.dump(self._model, filename)

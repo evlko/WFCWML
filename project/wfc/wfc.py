@@ -22,7 +22,9 @@ class WFC:
         self.history = History()
         self._is_initialized = False
 
-    def _calculate_max_rollbacks(self, max_rollbacks: int | None, grid: Grid) -> int | None:
+    def _calculate_max_rollbacks(
+        self, max_rollbacks: int | None, grid: Grid
+    ) -> int | None:
         if max_rollbacks is None:
             return int((grid.area) ** 0.5)
         elif max_rollbacks == -1:
