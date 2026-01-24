@@ -166,6 +166,7 @@ cython_debug/
 /.vscode
 /data/grids
 /data/weights
+/docs
 
 /content/wfc_steps
 /data/graphs/wfc

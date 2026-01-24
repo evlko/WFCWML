@@ -1,6 +1,7 @@
 import csv
 import random
 import uuid
+from datetime import datetime
 from dataclasses import dataclass, field
 from enum import Enum, StrEnum, auto
 
@@ -214,7 +215,7 @@ class GenerationHistory:
             return
 
         if file is None:
-            file = f"{uuid.uuid4()}.csv"
+            file = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
 
         match strategy:
             case SerializationStrategy.ALL:
