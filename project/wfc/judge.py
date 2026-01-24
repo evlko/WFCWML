@@ -38,6 +38,9 @@ class Decision:
     data: DecisionData
 
 
+CONTINUE_DECISION = Decision(DecisionType.CONTINUE, ContinueDecisionData())
+
+
 class Judge(ABC):
     """Judge decides whether to continue, rollback, or stop during WFC process."""
 
@@ -51,7 +54,6 @@ class Judge(ABC):
         pass
 
 
-# Judge implementations
 class RandomJudge(Judge):
     """Judge that randomly decides to rollback based on a probability."""
 

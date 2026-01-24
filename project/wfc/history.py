@@ -83,6 +83,10 @@ class History:
         return self._snapshots
 
     @property
+    def rollback_steps(self) -> list[Snapshot]:
+        return len(self._rollback_snapshots)
+
+    @property
     def steps(self) -> int:
         return len(self._snapshots)
 
@@ -101,7 +105,7 @@ class History:
         snapshot = Snapshot(
             step_number=len(self._snapshots),
             action_type=action_type,
-            action_point=(step.chosen_point.x, step.chosen_point.y),
+            action_point=step.chosen_point,
             grid_state=grid_state,
             possible_pattern_uids=(
                 [p.uid for p in possible_patterns] if possible_patterns else []
@@ -175,8 +179,8 @@ class GenerationHistory:
             generation_success,
             snapshot.step_number,
             snapshot.action_type.name,
-            snapshot.action_point[0],
-            snapshot.action_point[1],
+            snapshot.action_point.x,
+            snapshot.action_point.y,
             len(snapshot.possible_pattern_uids),
             (
                 snapshot.chosen_pattern_uid

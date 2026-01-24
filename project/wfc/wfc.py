@@ -1,14 +1,18 @@
 from project.wfc.advisor import Advisor
 from project.wfc.grid import Grid, Point
 from project.wfc.history import ActionType, History
-from project.wfc.judge import Decision, DecisionType, Judge
+from project.wfc.judge import CONTINUE_DECISION, Decision, DecisionType, Judge
 from project.wfc.outcomes import FailOutcome, SuccessOutcome
 from project.wfc.step_result import StepResult
 
 
 class WFC:
     def __init__(
-        self, grid: Grid, judge: Judge, advisor: Advisor, max_rollbacks: int = 10
+        self,
+        grid: Grid,
+        judge: Judge,
+        advisor: Advisor,
+        max_rollbacks: int | None = None,
     ) -> None:
         self.grid = grid
         self.judge = judge
@@ -60,10 +64,15 @@ class WFC:
 
         return possible_patterns
 
-    def _handle_rollback_decision(self, decision: Decision) -> None:
+    def rollback(self, decision: Decision) -> None:
         steps = decision.data.steps
-        self.rollback(steps=steps)
         self.rollback_count += steps
+
+        for _ in range(steps):
+            last_step = self.history.get_last_rollback_snapshot(pop=True)
+            if last_step is None:
+                break
+            self.grid.reset_point(p=last_step.action_point)
 
     def step(self, early_stopping: bool = True) -> StepResult:
         """Perform one step (do propagation) in the WFC process: find cell, place pattern and update entropy."""
@@ -74,21 +83,24 @@ class WFC:
         try:
             self._ensure_initialized()
 
-            # Step 1: Check if rollback limit exceeded
-            if self.rollback_count >= self.max_rollbacks:
+            # Step 1: Check if rollback limit exceeded (maxr_rollbacks = None means inf)
+            if self.max_rollbacks and self.rollback_count >= self.max_rollbacks:
                 result.outcome = FailOutcome.ROLLBACK_LIMIT_EXCEEDED
                 return result
 
             # Step 2: Check if judge decides to rollback or stop (before selecting point)
-            decision = self.judge.decide(grid=self.grid)
+            decision = CONTINUE_DECISION
+            if self.history.rollback_steps > 0:
+                decision = self.judge.decide(grid=self.grid)
 
             if decision.type == DecisionType.STOP:
                 result.outcome = FailOutcome.JUDGE_STOPPED
                 return result
 
             if decision.type == DecisionType.ROLLBACK:
-                self._handle_rollback_decision(decision)
+                self.rollback(decision)
                 action_type = ActionType.ROLLBACK
+                result.success = True
                 return result
 
             # Step 3: Select point to collapse
@@ -121,7 +133,6 @@ class WFC:
                 result.failed_point = self.grid.zero_entropy_cell
                 return result
 
-            # Step 7: Mark step as successful
             result.success = True
             return result
         finally:
@@ -132,19 +143,12 @@ class WFC:
                 possible_patterns=possible_patterns,
             )
 
-    def rollback(self, steps: int = 1) -> None:
-        for _ in range(steps):
-            last_step = self.history.get_last_rollback_snapshot(pop=True)
-            if last_step is None:
-                break
-            self.grid.reset_point(p=last_step.point)
-
     def generate(self) -> bool:
         """Runs the generation process until completion or failure."""
         self._initialize()
 
-        last_step = True
-        while not self.is_complete and last_step:
-            last_step = self.step().success
+        while not self.is_complete:
+            if not self.step().success:
+                break
 
         return self.is_complete

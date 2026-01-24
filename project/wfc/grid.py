@@ -147,6 +147,12 @@ class Grid:
                 neighbors.append((neighbor, direction) if add_direction else neighbor)
         return neighbors
 
+    def get_any_collapsed_neighbor(self, p: Point) -> Point | None:
+        for neighbor_point in self.get_neighbors(p=p):
+            if not self.is_empty_point(point=neighbor_point):
+                return neighbor_point
+        return None
+
     def get_valid_patterns(
         self, p: Point, depth: int = 0, max_depth: int = 1
     ) -> set[MetaPattern]:
@@ -182,7 +188,11 @@ class Grid:
     def reset_point(self, p: Point) -> None:
         """Reset the specified point to None."""
         self.grid[p.x, p.y] = None
-        self.entropy[p.x, p.y] = ...
+        self.entropy[p.x, p.y] = len(self.patterns)
+        collapsed_neighbors = self.get_any_collapsed_neighbor(p)
+        self.update_entropy(p)
+        if collapsed_neighbors:
+            self.update_entropy(collapsed_neighbors)
 
     def update_entropy(self, p: Point) -> None:
         """Update the entropy cascade"""
