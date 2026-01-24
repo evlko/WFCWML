@@ -11,7 +11,7 @@ from project.wfc.grid import Grid, Point, Rect
 from project.wfc.wobj import WeightedObject
 
 
-class ClassifierAdvisor(Model, Advisor):
+class SklearnAdvisor(Model, Advisor):
     def __init__(
         self,
         seed: int | None = None,
