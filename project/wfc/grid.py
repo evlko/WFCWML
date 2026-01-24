@@ -1,6 +1,8 @@
 import uuid
 from collections import deque
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Callable, Any
 
 import numpy as np
 
@@ -10,20 +12,28 @@ from project.wfc.pattern import MetaPattern
 from project.wfc.repository import Repository
 
 
-@dataclass
+@dataclass(frozen=True)
 class Point:
     x: int
     y: int
 
-    @property
-    def key(self) -> str:
-        return f"{self.x},{self.y}"
+    def __hash__(self) -> int:
+        return hash((self.x, self.y))
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Point):
+            return NotImplemented
+        return self.x == other.x and self.y == other.y
 
 
-@dataclass
+@dataclass(frozen=True)
 class Rect:
     width: int
     height: int
+
+    def __post_init__(self) -> None:
+        if self.width <= 0 or self.height <= 0:
+            raise ValueError(f"Width and height must be positive, got width={self.width}, height={self.height}")
 
     @property
     def area(self) -> int:
@@ -41,7 +51,7 @@ class Rect:
 class Grid:
     def __init__(
         self, patterns: list[MetaPattern], rect: Rect = Rect(width=3, height=3)
-    ):
+    ) -> None:
         self.width = rect.width
         self.height = rect.height
         self.patterns = patterns
@@ -53,8 +63,8 @@ class Grid:
 
     @property
     def is_collapsed(self) -> bool:
-        """Check if the entire grid has been filled."""
-        return np.all(self.grid != None)
+        """Check if the entire grid has been filled with patterns."""
+        return not np.any(self.grid == None)
 
     @property
     def zero_entropy_cell(self) -> None | Point:
@@ -69,33 +79,29 @@ class Grid:
         return None
 
     def initialize(self) -> None:
-        """Initialize or reset the grid with full entropy in all cells."""
-        self.grid = np.full((self.height, self.width), None)
-        self.entropy = np.full((self.height, self.width), len(self.patterns))
+        self.grid = np.full((self.height, self.width), None, dtype=object)
+        self.entropy = np.full((self.height, self.width), len(self.patterns), dtype=int)
 
-    def iterate_cells(self):
+    def iter_cells(self):
         for x in range(self.height):
             for y in range(self.width):
                 yield x, y, self.grid[x, y]
 
     @staticmethod
     def get_patterns_property(
-        patterns: np.ndarray, property_func: callable = lambda pattern: pattern.uid
+        patterns: np.ndarray,
+        property_func: Callable[[MetaPattern], Any] = lambda pattern: pattern.uid
     ) -> np.ndarray:
-        properties = np.array(
-            [
-                [property_func(pattern) if pattern else HIDDEN_CELL for pattern in row]
-                for row in patterns
-            ]
+        vectorized_func = np.vectorize(
+            lambda p: property_func(p) if p is not None else HIDDEN_CELL,
+            otypes=[object]
         )
-        return properties
+        return vectorized_func(patterns)
 
     def is_empty_point(self, point: Point) -> bool:
-        """Check if the specified point is empty."""
         return self.grid[point.x, point.y] is None
 
     def in_grid_bounds(self, point: Point) -> bool:
-        """Check if the specified point is within the grid bounds."""
         return 0 <= point.x < self.height and 0 <= point.y < self.width
 
     def get_patterns_around_point(
@@ -126,15 +132,22 @@ class Grid:
 
     def find_least_entropy_cell(self) -> Point | None:
         """Find the cell with the lowest entropy. If multiple, choose closest to center."""
-        candidates = self.entropy[self.entropy > 0]
-        if len(candidates) == 0:
+        uncollapsed_mask = self.entropy > 0
+        if not np.any(uncollapsed_mask):
             return None
-        min_entropy = np.min(candidates)
-        candidates = np.argwhere(self.entropy == min_entropy)
-        distances = np.linalg.norm(candidates - np.array(self.center), axis=1)
-        idx = np.argmin(distances)
-        candidate_x, candidate_y = candidates[idx]
-        return Point(x=candidate_x, y=candidate_y)
+        
+        min_entropy = np.min(self.entropy[uncollapsed_mask])
+        min_entropy_cells = np.argwhere(self.entropy == min_entropy)
+        
+        if len(min_entropy_cells) == 1:
+            x, y = min_entropy_cells[0]
+            return Point(x=x, y=y)
+        
+        center_array = np.array(self.center)
+        distances = np.linalg.norm(min_entropy_cells - center_array, axis=1)
+        closest_idx = np.argmin(distances)
+        x, y = min_entropy_cells[closest_idx]
+        return Point(x=x, y=y)
 
     def get_neighbors(
         self, p: Point, add_direction: bool = False
@@ -195,9 +208,8 @@ class Grid:
             self.update_entropy(collapsed_neighbors)
 
     def update_entropy(self, p: Point) -> None:
-        """Update the entropy cascade"""
         queue = deque(self.get_neighbors(p))
-        visited = {p.key}
+        visited = {p}
 
         while queue:
             current_point = queue.popleft()
@@ -212,15 +224,15 @@ class Grid:
 
             self.entropy[current_point.x, current_point.y] = new_entropy
             for neighbor in self.get_neighbors(current_point):
-                if neighbor.key not in visited:
+                if neighbor not in visited:
                     queue.append(neighbor)
-                    visited.add(neighbor.key)
+                    visited.add(neighbor)
 
     def serialize(
         self,
-        path: str,
+        path: str | Path,
         name: str | None = None,
-        property_func: callable = lambda pattern: pattern.uid,
+        property_func: Callable[[MetaPattern], Any] = lambda pattern: pattern.uid,
     ) -> None:
         """
         Serialize the grid to a file, saving a specific property of each pattern.
@@ -229,30 +241,34 @@ class Grid:
         if name is None:
             name = str(uuid.uuid4())
 
+        output_path = Path(path) / f"{name}.dat"
         properties = self.get_patterns_property(
             property_func=property_func, patterns=self.grid
         )
 
-        with open(f"{path}{name}.dat", "w") as f:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with output_path.open("w") as f:
             for row in properties:
                 f.write(",".join(map(str, row)) + "\n")
 
-    def deserialize(self, repository: Repository, path: str) -> None:
+    def deserialize(self, repository: Repository, path: str | Path) -> None:
         """
         Deserialize a file to reconstruct the grid.
         NB: works by uid.
         """
+        file_path = Path(path)
         grid = []
-        with open(path, "r") as f:
+        with file_path.open("r") as f:
             for line in f:
                 row = [
-                    repository.get_pattern_by_uid(int(value)) if value != -1 else None
+                    repository.get_pattern_by_uid(int(value))
+                    if int(value) != HIDDEN_CELL else None
                     for value in line.strip().split(",")
                 ]
                 grid.append(row)
-        self.grid = np.array(grid)
+        self.grid = np.array(grid, dtype=object)
         self.height = len(grid)
-        self.width = len(grid[0])
+        self.width = len(grid[0]) if grid else 0
 
     def __str__(self) -> str:
         """Custom string representation of the grid showing uids or 'None'."""

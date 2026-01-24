@@ -38,7 +38,7 @@ class GridRenderer(Renderer):
         if title:
             fig.suptitle(title)
 
-        for x, y, meta_pattern in grid.iterate_cells():
+        for x, y, meta_pattern in grid.iter_cells():
             cell_ax = ax[x, y]
             text = None
             image = None

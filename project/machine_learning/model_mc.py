@@ -48,7 +48,7 @@ class ModelMC(Model, Judge):
         for file_path in tqdm(grid_files):
             grid = Grid(patterns=repository.get_all_patterns())
             grid.deserialize(repository, file_path)
-            for x, y, meta_pattern in grid.iterate_cells():
+            for x, y, _ in grid.iter_cells():
                 point = Point(x, y)
                 pattenrs = grid.get_patterns_around_point(
                     point=point, view=self.view, is_extended=True
