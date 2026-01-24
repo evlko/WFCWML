@@ -85,13 +85,14 @@ class CatboostJudge(Model, Judge):
         features = self._extract_features(grid)
 
         probabilities = self._model.predict_proba(features)
-        failure_probability = probabilities[0, 1]
+        # Class 1 = should_continue (success), Class 0 = should NOT continue (failure)
+        continue_probability = probabilities[0, 1]
 
-        if failure_probability < self.rollback_threshold:
-            return Decision(
-                type=DecisionType.ROLLBACK, data=RollbackDecisionData(steps=1)
-            )
-        return Decision(type=DecisionType.CONTINUE, data=ContinueDecisionData())
+        if continue_probability >= self.rollback_threshold:
+            return Decision(type=DecisionType.CONTINUE, data=ContinueDecisionData())
+        return Decision(
+            type=DecisionType.ROLLBACK, data=RollbackDecisionData(steps=1)
+        )
 
     def load_weights(self, filename: str) -> None:
         self._model.load_model(filename)

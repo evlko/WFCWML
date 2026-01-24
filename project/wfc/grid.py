@@ -60,6 +60,10 @@ class Grid:
         self.initialize()
 
     @property
+    def area(self) -> int:
+        return self.width * self.height
+
+    @property
     def center(self) -> tuple[int, int]:
         return self.width // 2, self.height // 2
 

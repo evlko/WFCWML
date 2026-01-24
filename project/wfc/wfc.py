@@ -17,10 +17,18 @@ class WFC:
         self.grid = grid
         self.judge = judge
         self.advisor = advisor
-        self.max_rollbacks = max_rollbacks
+        self.max_rollbacks = self._calculate_max_rollbacks(max_rollbacks, grid)
         self.rollback_count = 0
         self.history = History()
         self._is_initialized = False
+
+    def _calculate_max_rollbacks(self, max_rollbacks: int | None, grid: Grid) -> int | None:
+        if max_rollbacks is None:
+            return int((grid.area) ** 0.5)
+        elif max_rollbacks == -1:
+            return None
+        else:
+            return max_rollbacks
 
     @property
     def is_complete(self) -> bool:
