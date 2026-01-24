@@ -72,7 +72,9 @@ class WFC:
             last_step = self.history.get_last_rollback_snapshot(pop=True)
             if last_step is None:
                 break
-            self.grid.reset_point(p=last_step.action_point)
+            self.grid.reset_point(
+                p=last_step.action_point, penalty=self.judge.rollback_penalty
+            )
 
     def step(self, early_stopping: bool = True) -> StepResult:
         """Perform one step (do propagation) in the WFC process: find cell, place pattern and update entropy."""

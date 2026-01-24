@@ -44,8 +44,9 @@ CONTINUE_DECISION = Decision(DecisionType.CONTINUE, ContinueDecisionData())
 class Judge(ABC):
     """Judge decides whether to continue, rollback, or stop during WFC process."""
 
-    def __init__(self, seed: int | None = None):
+    def __init__(self, seed: int | None = None, rollback_penalty: int = 1):
         self.seed = seed
+        self.rollback_penalty = rollback_penalty
         random.seed(seed)
 
     @abstractmethod
@@ -57,8 +58,13 @@ class Judge(ABC):
 class RandomJudge(Judge):
     """Judge that randomly decides to rollback based on a probability."""
 
-    def __init__(self, seed: int | None = None, rollback_chance: float = 0):
-        super().__init__(seed)
+    def __init__(
+        self,
+        seed: int | None = None,
+        rollback_chance: float = 0,
+        rollback_penalty: int = 1,
+    ):
+        super().__init__(seed, rollback_penalty)
         self.rollback_chance = rollback_chance
 
     def decide(self, grid: Grid) -> Decision:

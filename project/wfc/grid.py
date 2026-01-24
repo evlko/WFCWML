@@ -2,7 +2,7 @@ import uuid
 from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Any
+from typing import Any, Callable
 
 import numpy as np
 
@@ -33,7 +33,9 @@ class Rect:
 
     def __post_init__(self) -> None:
         if self.width <= 0 or self.height <= 0:
-            raise ValueError(f"Width and height must be positive, got width={self.width}, height={self.height}")
+            raise ValueError(
+                f"Width and height must be positive, got width={self.width}, height={self.height}"
+            )
 
     @property
     def area(self) -> int:
@@ -90,11 +92,11 @@ class Grid:
     @staticmethod
     def get_patterns_property(
         patterns: np.ndarray,
-        property_func: Callable[[MetaPattern], Any] = lambda pattern: pattern.uid
+        property_func: Callable[[MetaPattern], Any] = lambda pattern: pattern.uid,
     ) -> np.ndarray:
         vectorized_func = np.vectorize(
             lambda p: property_func(p) if p is not None else HIDDEN_CELL,
-            otypes=[object]
+            otypes=[object],
         )
         return vectorized_func(patterns)
 
@@ -135,14 +137,14 @@ class Grid:
         uncollapsed_mask = self.entropy > 0
         if not np.any(uncollapsed_mask):
             return None
-        
+
         min_entropy = np.min(self.entropy[uncollapsed_mask])
         min_entropy_cells = np.argwhere(self.entropy == min_entropy)
-        
+
         if len(min_entropy_cells) == 1:
             x, y = min_entropy_cells[0]
             return Point(x=x, y=y)
-        
+
         center_array = np.array(self.center)
         distances = np.linalg.norm(min_entropy_cells - center_array, axis=1)
         closest_idx = np.argmin(distances)
@@ -198,7 +200,7 @@ class Grid:
         self.grid[p.x, p.y] = pattern
         self.entropy[p.x, p.y] = 0
 
-    def reset_point(self, p: Point) -> None:
+    def reset_point(self, p: Point, penalty: int = 1) -> None:
         """Reset the specified point to None."""
         self.grid[p.x, p.y] = None
         self.entropy[p.x, p.y] = len(self.patterns)
@@ -206,6 +208,7 @@ class Grid:
         self.update_entropy(p)
         if collapsed_neighbors:
             self.update_entropy(collapsed_neighbors)
+        self.entropy[p.x, p.y] += penalty
 
     def update_entropy(self, p: Point) -> None:
         queue = deque(self.get_neighbors(p))
@@ -261,8 +264,11 @@ class Grid:
         with file_path.open("r") as f:
             for line in f:
                 row = [
-                    repository.get_pattern_by_uid(int(value))
-                    if int(value) != HIDDEN_CELL else None
+                    (
+                        repository.get_pattern_by_uid(int(value))
+                        if int(value) != HIDDEN_CELL
+                        else None
+                    )
                     for value in line.strip().split(",")
                 ]
                 grid.append(row)
