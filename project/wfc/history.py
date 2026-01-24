@@ -1,8 +1,8 @@
 import csv
 import random
 import uuid
-from datetime import datetime
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum, StrEnum, auto
 
 from project.wfc.grid import Grid, Point
@@ -209,7 +209,7 @@ class GenerationHistory:
         self,
         strategy: SerializationStrategy = SerializationStrategy.BALANCED,
         file: str | None = None,
-        directory: str = "data/history/raw/",
+        directory: str = "data/history/",
     ) -> None:
         if not self.results:
             return

@@ -171,4 +171,6 @@ cython_debug/
 /content/wfc_steps
 /data/graphs/wfc
 /data/graphs/wfcwmc
-/data/history/raw
+/data/history
+
+catboost_info/
