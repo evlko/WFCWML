@@ -1,4 +1,5 @@
 import json
+from abc import ABC, abstractmethod
 
 from project.logger import logger
 from project.wfc.pattern import MetaPattern, Pattern
@@ -6,15 +7,15 @@ from project.wfc.repository import ValidationResult, repository
 from project.wfc.rules import NeighborRuleSet
 
 
-class Factory:
-    def __init__(self, json_path: str) -> None:
-        with open(json_path, "r") as f:
-            data = json.load(f)
-            self.images_folder = data["images_folder"]
-            self.data = data["patterns"]
-
+class AbstractFactory(ABC):
+    """Abstract factory for creating patterns from different sources"""
+    
+    def __init__(self, images_folder: str, patterns_data: list[dict]) -> None:
+        self.images_folder = images_folder
+        self.data = patterns_data
+    
     def create_patterns(self) -> list[MetaPattern]:
-        """Creates patterns and rules from JSON data"""
+        """Creates patterns and rules from data"""
         patterns_data = {p["id"]: p for p in self.data}
         meta_patterns = [
             MetaPattern(
@@ -50,7 +51,7 @@ class Factory:
         return meta_patterns
 
     def create_rules(self, rules: dict[str, list[str | int]]) -> NeighborRuleSet:
-        """Create a NeighborRuleSet based on the JSON rules"""
+        """Create a NeighborRuleSet based on the rules data"""
 
         def rules_handler(options: list[str | int]):
             results = []
@@ -67,3 +68,25 @@ class Factory:
             allowed_left=rules_handler(rules.get("left", [])),
             allowed_right=rules_handler(rules.get("right", [])),
         )
+
+
+class JsonFactory(AbstractFactory):
+    """Factory that loads pattern data from a JSON file"""
+    
+    def __init__(self, json_path: str) -> None:
+        with open(json_path, "r") as f:
+            data = json.load(f)
+            images_folder = data["images_folder"]
+            patterns_data = data["patterns"]
+        super().__init__(images_folder, patterns_data)
+
+
+class ApiFactory(AbstractFactory):
+    """Factory that accepts pattern data directly (e.g., from API request)"""
+    
+    def __init__(self, images_folder: str, patterns_data: list[dict]) -> None:
+        super().__init__(images_folder, patterns_data)
+
+
+# Keep Factory as an alias for backward compatibility
+Factory = JsonFactory

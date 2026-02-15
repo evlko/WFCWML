@@ -59,6 +59,9 @@ public class GridRenderer : MonoBehaviour
             return;
         }
         
+        // Ensure repository is initialized
+        tileMappingRepository.Initialize();
+        
         int height = grid.Length;
         int width = grid[0].Length;
         
@@ -126,12 +129,6 @@ public class GridRenderer : MonoBehaviour
         spriteRenderer.sortingLayerName = sortingLayerName;
         spriteRenderer.sortingOrder = baseSortingOrder + layer;
         
-        TileData tileData = tileObj.AddComponent<TileData>();
-        tileData.tileUid = tileUid;
-        tileData.gridX = gridX;
-        tileData.gridY = gridY;
-        tileData.layer = layer;
-        
         _tileObjects.Add(tileObj);
     }
     
@@ -166,12 +163,4 @@ public class GridRenderer : MonoBehaviour
             zPosition
         );
     }
-}
-
-public class TileData : MonoBehaviour
-{
-    public int tileUid;
-    public int gridX;
-    public int gridY;
-    public int layer;
 }

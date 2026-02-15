@@ -37,6 +37,10 @@ class Repository:
     def __init__(self) -> None:
         self.patterns = None
 
+    def clear(self) -> None:
+        """Clear all registered patterns"""
+        self.patterns = None
+
     def register_patterns(self, patterns: list[MetaPattern]) -> None:
         self.patterns = patterns
 

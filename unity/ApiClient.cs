@@ -4,34 +4,42 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 
+/// <summary>
+/// Client for communicating with the WFC Python API.
+/// Sends generation requests and renders results.
+/// </summary>
 public class ApiClient : MonoBehaviour
 {
     [Header("API Configuration")]
     [Tooltip("Base URL of the API server")]
     public string apiBaseUrl = "http://localhost:8000";
 
-    [Header("Generate Parameters")]
-    [Tooltip("Height of the grid to generate")]
+    [Header("Generation Parameters")]
+    [Tooltip("Grid height")]
     public int height = 10;
     
-    [Tooltip("Width of the grid to generate")]
+    [Tooltip("Grid width")]
     public int width = 10;
     
-    [Tooltip("Number of levels/layers to generate")]
-    public int levels = 1;
+    [Tooltip("Number of generation attempts")]
+    public int generations = 1;
+    
+    [Header("WFC Configuration")]
+    [Tooltip("WFC configuration to send to API")]
+    public WFCConfig wfcConfig;
 
     [Header("Rendering")]
-    [Tooltip("Grid renderer for visualizing the generated grid")]
+    [Tooltip("Grid renderer component")]
     public GridRenderer gridRenderer;
     
-    [Tooltip("Automatically render grid after generation")]
+    [Tooltip("Auto-render after generation")]
     public bool autoRender = true;
 
-    [Header("Response")]
-    [Tooltip("Last response from the server")]
+    [Header("Debug")]
+    [Tooltip("Last API response")]
     public string lastResponse = "";
     
-    [Tooltip("Last generated grid data")]
+    [Tooltip("Last generated grid")]
     public GenerateResponse lastGeneratedGrid;
 
     [ContextMenu("Send Ping Request")]
@@ -77,17 +85,26 @@ public class ApiClient : MonoBehaviour
     {
         string url = $"{apiBaseUrl}/generate";
         Debug.Log($"Sending generate request to: {url}");
-        Debug.Log($"Parameters - Height: {height}, Width: {width}, Levels: {levels}");
+        Debug.Log($"Parameters - Height: {height}, Width: {width}, Generations: {generations}");
 
-        GenerateRequest requestBody = new GenerateRequest
+        GenerateRequestWithConfig requestBody = new GenerateRequestWithConfig
         {
             height = this.height,
             width = this.width,
-            levels = this.levels
+            generations = this.generations,
+            config = wfcConfig != null ? wfcConfig.ToJson() : null
         };
 
-        string jsonBody = JsonUtility.ToJson(requestBody);
-        Debug.Log($"Request body: {jsonBody}");
+        string jsonBody = requestBody.ToJson();
+        
+        if (wfcConfig != null)
+        {
+            Debug.Log($"Using custom WFCConfig with {wfcConfig.tiles.Count} tiles");
+        }
+        else
+        {
+            Debug.Log("Using server's default config");
+        }
 
         using (UnityWebRequest request = new UnityWebRequest(url, "POST"))
         {
@@ -264,7 +281,38 @@ public class GenerateRequest
 {
     public int height;
     public int width;
-    public int levels;
+    public int generations;
+}
+
+[System.Serializable]
+public class GenerateRequestWithConfig
+{
+    public int height;
+    public int width;
+    public int generations;
+    public string config; // JSON string of WFCConfigData or null
+
+    public string ToJson()
+    {
+        if (config == null)
+        {
+            // Simple request without config
+            GenerateRequest simpleRequest = new GenerateRequest
+            {
+                height = height,
+                width = width,
+                generations = generations
+            };
+            return JsonUtility.ToJson(simpleRequest);
+        }
+        else
+        {
+            // Request with config - need to manually construct JSON
+            // because Unity's JsonUtility doesn't handle nested objects well
+            string configJson = config;
+            return $"{{\"height\":{height},\"width\":{width},\"generations\":{generations},\"config\":{configJson}}}";
+        }
+    }
 }
 
 [System.Serializable]
