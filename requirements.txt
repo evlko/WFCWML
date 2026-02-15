@@ -8,3 +8,5 @@ seaborn
 yellowbrick
 black
 isort
+fastapi
+uvicorn

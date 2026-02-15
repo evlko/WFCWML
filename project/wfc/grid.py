@@ -83,6 +83,14 @@ class Grid:
             x, y = problematic_cells[0]
             return Point(x=x, y=y)
         return None
+    
+    @property
+    def uids(self) -> list[list[int | None]]:
+        """Convert grid to 2D array of pattern UIDs."""
+        properties = self.get_patterns_property(
+            property_func=lambda pattern: pattern.uid, patterns=self.grid
+        )
+        return properties.tolist()
 
     def initialize(self) -> None:
         self.grid = np.full((self.height, self.width), None, dtype=object)
