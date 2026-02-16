@@ -1,11 +1,18 @@
 using UnityEngine;
 using System.Collections.Generic;
 
+/// <summary>
+/// Renders WFC grids by mapping tile IDs to sprites and creating GameObjects.
+/// Handles both tile mapping and grid visualization.
+/// </summary>
 public class GridRenderer : MonoBehaviour
 {
-    [Header("References")]
-    [Tooltip("Repository containing tile mappings")]
-    public TileMappingRepository tileMappingRepository;
+    [Header("Tile Source")]
+    [Tooltip("WFC Config containing tile definitions")]
+    public WFCConfig wfcConfig;
+    
+    [Tooltip("Default sprite when tile ID not found")]
+    public Sprite defaultSprite;
     
     [Header("Grid Configuration")]
     [Tooltip("Size of each tile in world units")]
@@ -27,12 +34,9 @@ public class GridRenderer : MonoBehaviour
     [Tooltip("Base sorting order for tiles")]
     public int baseSortingOrder = 0;
     
-    [Header("Debug")]
-    [Tooltip("Show debug information")]
-    public bool showDebugInfo = false;
-    
     private List<GameObject> _tileObjects = new List<GameObject>();
-    private int[,] _currentGrid;
+    private Dictionary<int, WFCTileDefinition> _tileCache;
+    private bool _isInitialized = false;
     
     private void Awake()
     {
@@ -45,6 +49,78 @@ public class GridRenderer : MonoBehaviour
         }
     }
     
+    /// <summary>
+    /// Ensures the tile mapping is initialized before use.
+    /// </summary>
+    private void Initialize()
+    {
+        if (_isInitialized)
+        {
+            return;
+        }
+        
+        if (wfcConfig == null)
+        {
+            Debug.LogError("GridRenderer: No WFCConfig assigned!");
+            return;
+        }
+        
+        if (wfcConfig.tiles == null || wfcConfig.tiles.Count == 0)
+        {
+            Debug.LogError("GridRenderer: WFCConfig has no tiles!");
+            return;
+        }
+        
+        BuildTileCache();
+        _isInitialized = true;
+        
+        Debug.Log($"GridRenderer: Initialized with {_tileCache.Count} tiles from WFCConfig");
+    }
+    
+    private void BuildTileCache()
+    {
+        _tileCache = new Dictionary<int, WFCTileDefinition>();
+        
+        if (wfcConfig == null || wfcConfig.tiles == null)
+        {
+            return;
+        }
+        
+        foreach (var tile in wfcConfig.tiles)
+        {
+            if (tile == null)
+            {
+                Debug.LogWarning("GridRenderer: Null tile in config");
+                continue;
+            }
+            
+            if (_tileCache.ContainsKey(tile.id))
+            {
+                Debug.LogWarning($"GridRenderer: Duplicate tile ID {tile.id}");
+                continue;
+            }
+            
+            _tileCache[tile.id] = tile;
+        }
+    }
+    
+    private Sprite GetSpriteForTile(int tileId)
+    {
+        if (!_isInitialized)
+        {
+            Debug.LogError("GridRenderer: Not initialized!");
+            return defaultSprite;
+        }
+        
+        if (_tileCache.TryGetValue(tileId, out WFCTileDefinition tile))
+        {
+            return tile.GetRandomSprite();
+        }
+        
+        Debug.LogWarning($"GridRenderer: Tile ID {tileId} not found");
+        return defaultSprite;
+    }
+    
     public void RenderGrid(int[][] grid, int layerIndex = 0)
     {
         if (grid == null || grid.Length == 0)
@@ -53,22 +129,17 @@ public class GridRenderer : MonoBehaviour
             return;
         }
         
-        if (tileMappingRepository == null)
+        // Ensure initialized
+        Initialize();
+        
+        if (!_isInitialized)
         {
-            Debug.LogError("GridRenderer: TileMappingRepository not assigned!");
+            Debug.LogError("GridRenderer: Failed to initialize!");
             return;
         }
         
-        // Ensure repository is initialized
-        tileMappingRepository.Initialize();
-        
         int height = grid.Length;
         int width = grid[0].Length;
-        
-        if (showDebugInfo)
-        {
-            Debug.Log($"GridRenderer: Rendering grid {width}x{height} at layer {layerIndex}");
-        }
         
         float offsetX = -(width * (tileSize + tileSpacing)) / 2f + (tileSize / 2f);
         float offsetY = -(height * (tileSize + tileSpacing)) / 2f + (tileSize / 2f);
@@ -108,14 +179,10 @@ public class GridRenderer : MonoBehaviour
     
     private void CreateTile(int tileUid, Vector3 position, int gridX, int gridY, int layer)
     {
-        Sprite sprite = tileMappingRepository.GetSpriteForTile(tileUid);
+        Sprite sprite = GetSpriteForTile(tileUid);
         
         if (sprite == null)
         {
-            if (showDebugInfo)
-            {
-                Debug.LogWarning($"GridRenderer: No sprite for UID {tileUid} at ({gridX}, {gridY})");
-            }
             return;
         }
         
@@ -135,6 +202,7 @@ public class GridRenderer : MonoBehaviour
     [ContextMenu("Clear Grid")]
     public void ClearGrid()
     {
+        // Clear tracked objects
         foreach (var tileObj in _tileObjects)
         {
             if (tileObj != null)
@@ -145,10 +213,23 @@ public class GridRenderer : MonoBehaviour
         
         _tileObjects.Clear();
         
-        if (showDebugInfo)
+        // Also clear any remaining children of tilesParent
+        // (in case objects were created but not tracked, or after stopping Play mode)
+        if (tilesParent != null)
         {
-            Debug.Log("GridRenderer: Grid cleared");
+            int childCount = tilesParent.childCount;
+            for (int i = childCount - 1; i >= 0; i--)
+            {
+                DestroyImmediate(tilesParent.GetChild(i).gameObject);
+            }
         }
+    }
+    
+    [ContextMenu("Reinitialize")]
+    public void Reinitialize()
+    {
+        _isInitialized = false;
+        Initialize();
     }
     
     public Vector3 GetWorldPosition(int gridX, int gridY, int layer = 0)

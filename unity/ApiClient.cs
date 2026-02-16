@@ -24,6 +24,12 @@ public class ApiClient : MonoBehaviour
     [Tooltip("Number of generation attempts")]
     public int generations = 1;
     
+    [Tooltip("Judge ID: 0=AlwaysContinue, 1=90%Continue")]
+    public int judgeId = 0;
+    
+    [Tooltip("Advisor ID: 0=Random, 1=Greedy")]
+    public int advisorId = 0;
+    
     [Header("WFC Configuration")]
     [Tooltip("WFC configuration to send to API")]
     public WFCConfig wfcConfig;
@@ -35,12 +41,7 @@ public class ApiClient : MonoBehaviour
     [Tooltip("Auto-render after generation")]
     public bool autoRender = true;
 
-    [Header("Debug")]
-    [Tooltip("Last API response")]
-    public string lastResponse = "";
-    
-    [Tooltip("Last generated grid")]
-    public GenerateResponse lastGeneratedGrid;
+    private GenerateResponse cachedGrid;
 
     [ContextMenu("Send Ping Request")]
     public void Ping()
@@ -66,17 +67,16 @@ public class ApiClient : MonoBehaviour
             if (request.result == UnityWebRequest.Result.ConnectionError ||
                 request.result == UnityWebRequest.Result.ProtocolError)
             {
-                lastResponse = $"Error: {request.error}";
                 Debug.LogError($"Ping request failed: {request.error}");
                 Debug.LogError($"Response Code: {request.responseCode}");
             }
             else
             {
-                lastResponse = request.downloadHandler.text;
-                Debug.Log($"Ping response received: {lastResponse}");
+                string response = request.downloadHandler.text;
+                Debug.Log($"Ping response received: {response}");
                 
-                PingResponse response = JsonUtility.FromJson<PingResponse>(lastResponse);
-                Debug.Log($"Message from server: {response.message}");
+                PingResponse pingResponse = JsonUtility.FromJson<PingResponse>(response);
+                Debug.Log($"Message from server: {pingResponse.message}");
             }
         }
     }
@@ -92,7 +92,9 @@ public class ApiClient : MonoBehaviour
             height = this.height,
             width = this.width,
             generations = this.generations,
-            config = wfcConfig != null ? wfcConfig.ToJson() : null
+            config = wfcConfig != null ? wfcConfig.ToJson() : null,
+            judge_id = this.judgeId,
+            advisor_id = this.advisorId
         };
 
         string jsonBody = requestBody.ToJson();
@@ -118,7 +120,6 @@ public class ApiClient : MonoBehaviour
             if (request.result == UnityWebRequest.Result.ConnectionError ||
                 request.result == UnityWebRequest.Result.ProtocolError)
             {
-                lastResponse = $"Error: {request.error}";
                 Debug.LogError($"Generate request failed: {request.error}");
                 Debug.LogError($"Response Code: {request.responseCode}");
                 if (request.downloadHandler != null)
@@ -128,13 +129,13 @@ public class ApiClient : MonoBehaviour
             }
             else
             {
-                lastResponse = request.downloadHandler.text;
+                string response = request.downloadHandler.text;
                 Debug.Log($"Generate response received successfully");
                 
                 try
                 {
-                    lastGeneratedGrid = ParseGenerateResponse(lastResponse);
-                    Debug.Log($"Parsed grid: {lastGeneratedGrid.grid.Count} layers");
+                    cachedGrid = ParseGenerateResponse(response);
+                    Debug.Log($"Parsed grid: {cachedGrid.grid.Count} layers");
                     
                     if (autoRender && gridRenderer != null)
                     {
@@ -148,7 +149,7 @@ public class ApiClient : MonoBehaviour
                 catch (System.Exception e)
                 {
                     Debug.LogError($"Failed to parse generate response: {e.Message}");
-                    Debug.LogError($"Response was: {lastResponse}");
+                    Debug.LogError($"Response was: {response}");
                 }
             }
         }
@@ -244,7 +245,7 @@ public class ApiClient : MonoBehaviour
     [ContextMenu("Render Last Grid")]
     public void RenderGrid()
     {
-        if (lastGeneratedGrid == null || lastGeneratedGrid.grid == null || lastGeneratedGrid.grid.Count == 0)
+        if (cachedGrid == null || cachedGrid.grid == null || cachedGrid.grid.Count == 0)
         {
             Debug.LogWarning("No grid data to render. Generate a grid first.");
             return;
@@ -256,8 +257,8 @@ public class ApiClient : MonoBehaviour
             return;
         }
         
-        Debug.Log($"Rendering grid with {lastGeneratedGrid.grid.Count} layer(s)");
-        gridRenderer.RenderMultipleLayers(lastGeneratedGrid.grid);
+        Debug.Log($"Rendering grid with {cachedGrid.grid.Count} layer(s)");
+        gridRenderer.RenderMultipleLayers(cachedGrid.grid);
     }
     
     [ContextMenu("Clear Grid")]
@@ -282,6 +283,8 @@ public class GenerateRequest
     public int height;
     public int width;
     public int generations;
+    public int judge_id;
+    public int advisor_id;
 }
 
 [System.Serializable]
@@ -291,6 +294,8 @@ public class GenerateRequestWithConfig
     public int width;
     public int generations;
     public string config; // JSON string of WFCConfigData or null
+    public int judge_id;
+    public int advisor_id;
 
     public string ToJson()
     {
@@ -301,7 +306,9 @@ public class GenerateRequestWithConfig
             {
                 height = height,
                 width = width,
-                generations = generations
+                generations = generations,
+                judge_id = judge_id,
+                advisor_id = advisor_id
             };
             return JsonUtility.ToJson(simpleRequest);
         }
@@ -310,7 +317,7 @@ public class GenerateRequestWithConfig
             // Request with config - need to manually construct JSON
             // because Unity's JsonUtility doesn't handle nested objects well
             string configJson = config;
-            return $"{{\"height\":{height},\"width\":{width},\"generations\":{generations},\"config\":{configJson}}}";
+            return $"{{\"height\":{height},\"width\":{width},\"generations\":{generations},\"judge_id\":{judge_id},\"advisor_id\":{advisor_id},\"config\":{configJson}}}";
         }
     }
 }

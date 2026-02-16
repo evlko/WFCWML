@@ -1,6 +1,6 @@
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 import uvicorn
 
@@ -8,11 +8,23 @@ from project.config import DATA_SOURCE
 from project.wfc.factory import JsonFactory, ApiFactory
 from project.wfc.repository import repository
 from project.wfc.grid import Grid, Rect
-from project.wfc.judge import AlwaysContinueJudge
-from project.wfc.advisor import RandomAdvisor
+from project.wfc.judge import AlwaysContinueJudge, RandomJudge, Judge
+from project.wfc.advisor import RandomAdvisor, GreedyAdvisor, Advisor
 from project.wfc.wfc import WFC
 
 app = FastAPI(title="WFCWML API")
+
+# Judge implementations map
+JUDGES = {
+    0: lambda: AlwaysContinueJudge(),
+    1: lambda: RandomJudge(rollback_chance=0.1),
+}
+
+# Advisor implementations map
+ADVISORS = {
+    0: lambda: RandomAdvisor(),
+    1: lambda: GreedyAdvisor(),
+}
 
 
 class WFCConfig(BaseModel):
@@ -26,6 +38,8 @@ class GenerateRequest(BaseModel):
     height: int = Field(default=20, ge=1, description="Height of the grid")
     generations: int = Field(default=1, ge=1, description="Target number of successful generations")
     config: WFCConfig | None = Field(default=None, description="Optional WFC configuration. If not provided, uses default config from project settings.")
+    judge_id: int = Field(default=0, description="Judge ID: 0=AlwaysContinue, 1=90%Continue")
+    advisor_id: int = Field(default=0, description="Advisor ID: 0=Random, 1=Greedy")
 
 
 @app.get("/ping")
@@ -56,6 +70,20 @@ async def generate(request: GenerateRequest):
     """Generate a grid using Wave Function Collapse algorithm."""
     repository.clear()
 
+    # Validate and create judge
+    if request.judge_id not in JUDGES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown judge_id: {request.judge_id}. Available: {list(JUDGES.keys())}"
+        )
+    
+    # Validate and create advisor
+    if request.advisor_id not in ADVISORS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown advisor_id: {request.advisor_id}. Available: {list(ADVISORS.keys())}"
+        )
+
     if request.config:
         processed_patterns = preprocess_patterns(request.config.patterns)
         factory = ApiFactory(
@@ -69,8 +97,8 @@ async def generate(request: GenerateRequest):
     rect = Rect(width=request.width, height=request.height)
     grid = Grid(rect=rect, patterns=repository.get_all_patterns())
     
-    judge = AlwaysContinueJudge()
-    advisor = RandomAdvisor()
+    judge = JUDGES[request.judge_id]()
+    advisor = ADVISORS[request.advisor_id]()
     wfc = WFC(grid=grid, judge=judge, advisor=advisor)
     
     successful_generations = 0
