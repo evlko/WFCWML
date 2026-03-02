@@ -166,6 +166,7 @@ class GenerationHistory:
                     [
                         f"cell_{x}_{y}_entropy",
                         f"cell_{x}_{y}_is_walkable",
+                        f"cell_{x}_{y}_uid",
                     ]
                 )
 
@@ -200,12 +201,13 @@ class GenerationHistory:
                 [
                     cell.entropy,
                     cell.is_walkable if cell.is_walkable is not None else -1,
+                    cell.pattern_uid if cell.pattern_uid is not None else -1,
                 ]
             )
 
         return row
 
-    def serialize(
+    def save(
         self,
         strategy: SerializationStrategy = SerializationStrategy.BALANCED,
         file: str | None = None,
