@@ -25,8 +25,9 @@ class SerializationStrategy(Enum):
 @dataclass
 class CellState:
     entropy: int
-    is_walkable: int | None  # None if cell is not collapsed, 0 or 1 otherwise
-    pattern_uid: int | None  # None if cell is not collapsed
+    is_walkable: int | None
+    pattern_uid: int | None
+    valid_pattern_uids: list[int] = field(default_factory=list)
 
 
 @dataclass
@@ -36,7 +37,7 @@ class GridState:
     cells: list[CellState]  # Flattened list of cell states (row-major order)
 
     @classmethod
-    def from_grid(cls, grid: Grid) -> "GridState":
+    def from_grid(cls, grid: Grid, max_domain_size: int = 50) -> "GridState":
         cells = []
         for x in range(grid.height):
             for y in range(grid.width):
@@ -48,11 +49,22 @@ class GridState:
                             entropy=entropy,
                             is_walkable=pattern.is_walkable,
                             pattern_uid=pattern.uid,
+                            valid_pattern_uids=[pattern.uid],
                         )
                     )
                 else:
+                    point = Point(x=x, y=y)
+                    valid_patterns = grid.get_valid_patterns(point)
+                    valid_uids = sorted([p.uid for p in valid_patterns])[
+                        :max_domain_size
+                    ]
                     cells.append(
-                        CellState(entropy=entropy, is_walkable=None, pattern_uid=None)
+                        CellState(
+                            entropy=entropy,
+                            is_walkable=None,
+                            pattern_uid=None,
+                            valid_pattern_uids=valid_uids,
+                        )
                     )
         return cls(width=grid.width, height=grid.height, cells=cells)
 
@@ -156,6 +168,7 @@ class GenerationHistory:
             "action_x",
             "action_y",
             "num_possible_patterns",
+            "possible_pattern_uids",
             "chosen_pattern_uid",
             "chosen_pattern_is_walkable",
         ]
@@ -166,7 +179,8 @@ class GenerationHistory:
                     [
                         f"cell_{x}_{y}_entropy",
                         f"cell_{x}_{y}_is_walkable",
-                        f"cell_{x}_{y}_uid",
+                        f"cell_{x}_{y}_pattern_uid",
+                        f"cell_{x}_{y}_valid_patterns",
                     ]
                 )
 
@@ -176,6 +190,12 @@ class GenerationHistory:
     def _snapshot_to_row(
         snapshot: Snapshot, generation_uid: str, generation_success: bool
     ) -> list:
+        possible_patterns_str = (
+            ";".join(map(str, snapshot.possible_pattern_uids))
+            if snapshot.possible_pattern_uids
+            else ""
+        )
+
         row = [
             generation_uid,
             generation_success,
@@ -184,6 +204,7 @@ class GenerationHistory:
             snapshot.action_point.x,
             snapshot.action_point.y,
             len(snapshot.possible_pattern_uids),
+            possible_patterns_str,
             (
                 snapshot.chosen_pattern_uid
                 if snapshot.chosen_pattern_uid is not None
@@ -197,11 +218,17 @@ class GenerationHistory:
         ]
 
         for cell in snapshot.grid_state.cells:
+            valid_patterns_str = (
+                ";".join(map(str, cell.valid_pattern_uids))
+                if cell.valid_pattern_uids
+                else ""
+            )
             row.extend(
                 [
                     cell.entropy,
                     cell.is_walkable if cell.is_walkable is not None else -1,
                     cell.pattern_uid if cell.pattern_uid is not None else -1,
+                    valid_patterns_str,
                 ]
             )
 

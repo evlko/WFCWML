@@ -76,6 +76,11 @@ class BaseMLJudge(Model, Judge):
             columns=self.FEATURE_NAMES,
         )
 
+    def get_confidence(self, grid: Grid) -> float:
+        features_df = self._extract_features(grid)
+        probabilities = self._model.predict_proba(features_df)
+        return probabilities[0, 1]
+
     def decide(self, grid: Grid) -> Decision:
         features_df = self._extract_features(grid)
 
@@ -84,5 +89,8 @@ class BaseMLJudge(Model, Judge):
         continue_probability = probabilities[0, 1]
 
         if continue_probability >= self.rollback_threshold:
-            return Decision(type=DecisionType.CONTINUE, data=ContinueDecisionData())
+            return Decision(
+                type=DecisionType.CONTINUE,
+                data=ContinueDecisionData(confidence=continue_probability),
+            )
         return Decision(type=DecisionType.ROLLBACK, data=RollbackDecisionData(steps=1))

@@ -1,4 +1,6 @@
-from project.wfc.advisor import Advisor
+import random
+
+from project.wfc.advisor import RANDOM_ADVISOR, Advisor
 from project.wfc.grid import Grid, Point
 from project.wfc.history import ActionType, History
 from project.wfc.judge import CONTINUE_DECISION, Decision, DecisionType, Judge
@@ -13,29 +15,43 @@ class WFC:
         judge: Judge,
         advisor: Advisor,
         max_rollbacks: int | None = None,
+        advisor_confidence_threshold: float = 0.5,
+        advisor_early_steps: int | float = 0.2,
+        advisor_late_steps: int | float = 0.8,
     ) -> None:
         self.grid = grid
         self.judge = judge
         self.advisor = advisor
         self.max_rollbacks = self._calculate_max_rollbacks(max_rollbacks, grid)
+        self._early_advisor_threshold = self._calculate_threshold(
+            grid.area, advisor_early_steps
+        )
+        self._late_advisor_threshold = self._calculate_threshold(
+            grid.area, advisor_late_steps
+        )
+        self.advisor_confidence_threshold = advisor_confidence_threshold
         self.rollback_count = 0
         self.history = History()
         self._is_initialized = False
-
-    def _calculate_max_rollbacks(
-        self, max_rollbacks: int | None, grid: Grid
-    ) -> int | None:
-        if max_rollbacks is None:
-            return int((grid.area) ** 0.5)
-        elif max_rollbacks == -1:
-            return None
-        else:
-            return max_rollbacks
 
     @property
     def is_complete(self) -> bool:
         """Check if the grid has been fully collapsed."""
         return self.grid.is_collapsed
+
+    @staticmethod
+    def _calculate_threshold(total_steps: int, x: int | float) -> int:
+        if 0.0 < x < 1.0:
+            return int(total_steps * x)
+        return int(x)
+
+    @staticmethod
+    def _calculate_max_rollbacks(max_rollbacks: int | None, grid: Grid) -> int | None:
+        if max_rollbacks is None:
+            return int((grid.area) ** 0.5)
+        elif max_rollbacks == -1:
+            return None
+        return max_rollbacks
 
     def _initialize(self) -> None:
         """Initialize the grid for the WFC process."""
@@ -86,6 +102,28 @@ class WFC:
                 p=last_step.action_point, penalty=self.judge.rollback_penalty
             )
 
+    def _calculate_advisor_probability(self) -> float:
+        """Calculate the probability of using advisor based on current step count."""
+        current_step = self.history.steps
+
+        if current_step <= self._early_advisor_threshold:
+            return 0.0
+        elif current_step >= self._late_advisor_threshold:
+            return 1.0
+
+        progress = (current_step - self._early_advisor_threshold) / (
+            self._late_advisor_threshold - self._early_advisor_threshold
+        )
+        return progress
+
+    def _should_use_advisor(self, judge_confidence: float) -> bool:
+        """Determine whether to use advisor based on judge confidence and step-based probability."""
+        if judge_confidence < self.advisor_confidence_threshold:
+            return True
+
+        advisor_prob = self._calculate_advisor_probability()
+        return random.random() < advisor_prob
+
     def step(self, early_stopping: bool = True) -> StepResult:
         """Perform one step (do propagation) in the WFC process: find cell, place pattern and update entropy."""
         result = StepResult()
@@ -125,8 +163,12 @@ class WFC:
             if possible_patterns is None:
                 return result
 
-            # Step 5: Use advisor to select pattern
-            chosen_pattern = self.advisor.select(
+            # Step 5: Determine whether to use advisor or random selection
+            judge_confidence = decision.data.confidence
+            use_advisor = self._should_use_advisor(judge_confidence)
+            advisor = self.advisor if use_advisor else RANDOM_ADVISOR
+
+            chosen_pattern = advisor.select(
                 objects=possible_patterns, grid=self.grid, point=point
             )
 

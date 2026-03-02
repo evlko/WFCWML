@@ -19,7 +19,7 @@ class DecisionData(ABC):
 
 @dataclass
 class ContinueDecisionData(DecisionData):
-    pass
+    confidence: float = 1.0
 
 
 @dataclass
@@ -38,7 +38,9 @@ class Decision:
     data: DecisionData
 
 
-CONTINUE_DECISION = Decision(DecisionType.CONTINUE, ContinueDecisionData())
+CONTINUE_DECISION = Decision(
+    DecisionType.CONTINUE, ContinueDecisionData(confidence=1.0)
+)
 
 
 class Judge(ABC):
@@ -53,6 +55,10 @@ class Judge(ABC):
     def decide(self, grid: Grid) -> Decision:
         """Decide whether to continue, rollback, or stop."""
         pass
+
+    def get_confidence(self, grid: Grid) -> float:
+        """Get confidence score for the current grid state. Default implementation returns 1.0."""
+        return 1.0
 
 
 class RandomJudge(Judge):
@@ -72,11 +78,17 @@ class RandomJudge(Judge):
             return Decision(
                 type=DecisionType.ROLLBACK, data=RollbackDecisionData(steps=1)
             )
-        return Decision(type=DecisionType.CONTINUE, data=ContinueDecisionData())
+        confidence = self.get_confidence(grid)
+        return Decision(
+            type=DecisionType.CONTINUE, data=ContinueDecisionData(confidence=confidence)
+        )
 
 
 class AlwaysContinueJudge(Judge):
     """Judge that always decides to continue."""
 
     def decide(self, grid: Grid) -> Decision:
-        return Decision(type=DecisionType.CONTINUE, data=ContinueDecisionData())
+        confidence = self.get_confidence(grid)
+        return Decision(
+            type=DecisionType.CONTINUE, data=ContinueDecisionData(confidence=confidence)
+        )

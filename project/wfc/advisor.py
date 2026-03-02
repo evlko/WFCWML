@@ -38,3 +38,6 @@ class GreedyAdvisor(Advisor):
         self, objects: list[WeightedObject], grid: Grid, point: Point
     ) -> WeightedObject:
         return max(objects, key=lambda obj: obj.weight)
+
+
+RANDOM_ADVISOR = RandomAdvisor()
