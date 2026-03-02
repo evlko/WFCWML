@@ -9,11 +9,11 @@ from project.wfc.rules import NeighborRuleSet
 
 class AbstractFactory(ABC):
     """Abstract factory for creating patterns from different sources"""
-    
+
     def __init__(self, images_folder: str, patterns_data: list[dict]) -> None:
         self.images_folder = images_folder
         self.data = patterns_data
-    
+
     def create_patterns(self) -> list[MetaPattern]:
         """Creates patterns and rules from data"""
         patterns_data = {p["id"]: p for p in self.data}
@@ -72,7 +72,7 @@ class AbstractFactory(ABC):
 
 class JsonFactory(AbstractFactory):
     """Factory that loads pattern data from a JSON file"""
-    
+
     def __init__(self, json_path: str) -> None:
         with open(json_path, "r") as f:
             data = json.load(f)
@@ -83,7 +83,7 @@ class JsonFactory(AbstractFactory):
 
 class ApiFactory(AbstractFactory):
     """Factory that accepts pattern data directly (e.g., from API request)"""
-    
+
     def __init__(self, images_folder: str, patterns_data: list[dict]) -> None:
         super().__init__(images_folder, patterns_data)
 

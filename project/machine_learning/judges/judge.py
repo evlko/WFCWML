@@ -1,8 +1,5 @@
-import joblib
 import numpy as np
 import pandas as pd
-from catboost import CatBoostClassifier
-from sklearn.base import BaseEstimator, ClassifierMixin
 
 from project.machine_learning.model import Model
 from project.wfc.grid import Grid
@@ -89,44 +86,3 @@ class BaseMLJudge(Model, Judge):
         if continue_probability >= self.rollback_threshold:
             return Decision(type=DecisionType.CONTINUE, data=ContinueDecisionData())
         return Decision(type=DecisionType.ROLLBACK, data=RollbackDecisionData(steps=1))
-
-
-class CatboostJudge(BaseMLJudge):
-    def __init__(
-        self,
-        seed: int | None = None,
-        rollback_threshold: float = 0.5,
-        rollback_penalty: int = 1,
-        weights: str | None = None,
-    ):
-        super().__init__(seed, rollback_threshold, rollback_penalty)
-        self._model = CatBoostClassifier()
-        if weights is not None:
-            self.load_weights(weights)
-
-    def load_weights(self, filename: str) -> None:
-        self._model.load_model(filename)
-
-    def save_weights(self, filename: str) -> None:
-        self._model.save_model(filename)
-
-
-class SklearnJudge(BaseMLJudge):
-    def __init__(
-        self,
-        seed: int | None = None,
-        rollback_threshold: float = 0.5,
-        rollback_penalty: int = 1,
-        weights: str | None = None,
-        model: BaseEstimator | ClassifierMixin | None = None,
-    ):
-        super().__init__(seed, rollback_threshold, rollback_penalty)
-        self._model = model
-        if weights is not None:
-            self.load_weights(weights)
-
-    def load_weights(self, filename: str) -> None:
-        self._model = joblib.load(filename)
-
-    def save_weights(self, filename: str) -> None:
-        joblib.dump(self._model, filename)

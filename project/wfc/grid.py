@@ -83,7 +83,7 @@ class Grid:
             x, y = problematic_cells[0]
             return Point(x=x, y=y)
         return None
-    
+
     @property
     def uids(self) -> list[list[int | None]]:
         """Convert grid to 2D array of pattern UIDs."""
